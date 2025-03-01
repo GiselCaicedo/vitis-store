@@ -1,6 +1,6 @@
 import { Poppins } from 'next/font/google';
 import '@src/styles/globals.css';
-import Navbar from '@src/components/inventario/Navbar';
+import Header from '@src/components/layout/Header';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head />
       <body className="font-poppins bg-gray-50 text-gray-900">
         <div className='top-0'>
-          <Navbar />
+          <Header />
         </div>
         {children}
       </body>
