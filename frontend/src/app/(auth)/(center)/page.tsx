@@ -1,13 +1,13 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Package, 
   BarChart4, 
   AlertCircle, 
   TrendingUp, 
   Calendar,
-
   ShoppingCart, 
   Tag, 
   Clock,
@@ -18,63 +18,122 @@ import {
   DollarSign,
   Percent
 } from 'lucide-react';
-
+import { getHomeDashboardData } from '@src/service/conexion';
 
 export default function HomePage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('resumen');
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [stockFilter, setStockFilter] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Datos para las tarjetas de resumen
-  const summaryCards = [
-    { title: 'Ventas de hoy', value: '$8,459', trend: '+12%', icon: <DollarSign className="w-5 h-5" />, color: 'bg-blue-500' },
-    { title: 'Nuevos clientes', value: '24', trend: '+3', icon: <UserPlus className="w-5 h-5" />, color: 'bg-green-500' },
-    { title: 'Productos activos', value: '342', trend: '-5', icon: <Package className="w-5 h-5" />, color: 'bg-purple-500' },
-    { title: 'Tasa de conversión', value: '5.72%', trend: '+0.4%', icon: <Percent className="w-5 h-5" />, color: 'bg-amber-500' },
-  ];
-
-  // Datos para productos más vendidos
-  const topProducts = [
-    { id: 1, name: 'Smartphone Galaxy S22', category: 'Electrónica', sales: 42, stock: 18, price: '$899' },
-    { id: 2, name: 'Zapatillas Deportivas Air Max', category: 'Calzado', sales: 38, stock: 25, price: '$129' },
-    { id: 3, name: 'Auriculares Bluetooth Pro', category: 'Accesorios', sales: 35, stock: 12, price: '$79' },
-    { id: 4, name: 'Camiseta Premium Algodón', category: 'Ropa', sales: 31, stock: 45, price: '$35' },
-    { id: 5, name: 'Reloj Inteligente Serie 7', category: 'Electrónica', sales: 28, stock: 9, price: '$299' },
-  ];
-
-  // Datos para alertas recientes
-  const recentAlerts = [
-    { id: 1, type: 'stock', message: 'Auriculares Bluetooth Pro - Stock bajo (12 unidades)', time: '8 min' },
-    { id: 2, type: 'price', message: 'Actualización de precio necesaria para Zapatillas Deportivas', time: '35 min' },
-    { id: 3, type: 'system', message: 'Backup automático completado exitosamente', time: '1 hora' },
-    { id: 4, type: 'stock', message: 'Reloj Inteligente Serie 7 - Stock bajo (9 unidades)', time: '2 horas' },
-  ];
-
-  // Datos para actividades recientes
-  const recentActivities = [
-    { id: 1, type: 'sale', user: 'Carlos Méndez', action: 'registró una venta', details: '$345.00 - 3 productos', time: '12:45 PM' },
-    { id: 2, type: 'inventory', user: 'Ana Martínez', action: 'actualizó el inventario', details: '+25 Camisetas Premium', time: '11:32 AM' },
-    { id: 3, type: 'product', user: 'Luis García', action: 'agregó un nuevo producto', details: 'Tablet Pro 11"', time: '10:15 AM' },
-    { id: 4, type: 'sale', user: 'María Rodríguez', action: 'registró una venta', details: '$1,299.00 - 2 productos', time: '9:23 AM' },
-    { id: 5, type: 'return', user: 'Juan Pérez', action: 'procesó una devolución', details: 'Auriculares Bluetooth', time: '8:50 AM' },
-  ];
-
-  // Fechas para el calendario
-  const today = new Date();
-  const dates = Array.from({ length: 5 }, (_, i) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + i);
-    return date;
-  });
-
-  // Tabs de la página principal
-  const tabs = [
-    { id: 'resumen', label: 'Resumen', icon: <BarChart4 className="w-4 h-4" /> },
-    { id: 'inventario', label: 'Inventario', icon: <Package className="w-4 h-4" /> },
-    { id: 'ventas', label: 'Ventas', icon: <ShoppingCart className="w-4 h-4" /> },
-    { id: 'alertas', label: 'Alertas', icon: <AlertCircle className="w-4 h-4" /> },
-  ];
+  // Estados para almacenar los datos del dashboard
+  const [summaryData, setSummaryData] = useState([]);
+  const [topProducts, setTopProducts] = useState([]);
+  const [recentAlerts, setRecentAlerts] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  
+  // Efecto para cargar los datos del dashboard
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        
+        // Formatear la fecha para enviarla como parámetro
+        const formattedDate = selectedDate.toISOString().split('T')[0];
+        
+        const data = await getHomeDashboardData({
+          searchTerm,
+          categoryFilter,
+          stockFilter,
+          fecha: formattedDate // Usamos "fecha" como nombre del parámetro
+        });
+        
+        // Actualizar los estados con los datos recibidos
+        if (data.summaryData) setSummaryData(data.summaryData);
+        if (data.topProducts) setTopProducts(data.topProducts);
+        if (data.recentAlerts) setRecentAlerts(data.recentAlerts);
+        if (data.recentActivities) setRecentActivities(data.recentActivities);
+        
+        setLoading(false);
+        
+        console.log("Datos cargados para fecha:", formattedDate);
+      } catch (error) {
+        console.error('Error al cargar datos del dashboard principal:', error);
+        setLoading(false);
+      }
+    };
+    
+    fetchDashboardData();
+  }, [searchTerm, categoryFilter, stockFilter, selectedDate]);
+  
+  // Funciones de navegación
+  const navigateToProductos = () => {
+    router.push('/productos');
+  };
+  
+  const navigateToAlertas = () => {
+    router.push('/alertas');
+  };
+  
+  const navigateToHistorial = () => {
+    router.push('/historial');
+  };
+  
+  const navigateToReportes = () => {
+    router.push('/reportes');
+  };
+  
+  // Función para manejar la selección de fecha
+  const handleDateChange = (e) => {
+    const newDate = new Date(e.target.value);
+    setSelectedDate(newDate);
+  };
+  
+  const handleApplyDateFilter = () => {
+    // La fecha ya está aplicada por el useEffect
+    setShowDatePicker(false);
+  };
+  
+  // Componente para el selector de fecha
+  const DatePicker = () => (
+    <div className="absolute top-full mt-1 right-0 bg-white shadow-lg rounded-md border border-slate-200 p-4 z-10 w-72">
+      <div className="flex flex-col space-y-2">
+        <label className="text-sm font-medium text-slate-700">Seleccionar fecha</label>
+        <input 
+          type="date" 
+          className="border rounded-md p-2"
+          value={selectedDate.toISOString().split('T')[0]}
+          onChange={handleDateChange}
+        />
+        <div className="flex justify-end space-x-2 mt-2">
+          <button 
+            onClick={() => setShowDatePicker(false)} 
+            className="px-3 py-1 border rounded-md text-sm">
+            Cancelar
+          </button>
+          <button 
+            onClick={handleApplyDateFilter} 
+            className="px-3 py-1 bg-blue-600 text-white rounded-md text-sm">
+            Aplicar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+  
+  // Componente para mostrar un mensaje de carga
+  const LoadingIndicator = () => (
+    <div className="flex justify-center items-center p-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       
       <main className="container mx-auto px-4 py-6">
         {/* Bienvenida y fecha */}
@@ -82,39 +141,60 @@ export default function HomePage() {
           <div>
             <h1 className="text-2xl font-bold text-slate-800">Bienvenido a Viti's Store</h1>
             <p className="text-slate-500 mt-1">
-              {today.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {selectedDate.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
           <div className="mt-4 md:mt-0 flex items-center space-x-2">
-            <button className="px-4 py-2 bg-white border border-slate-200 rounded-md text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center">
-              <Calendar className="w-4 h-4 mr-2" />
-              Seleccionar Fecha
-            </button>
-            <button className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center">
+            <div className="relative">
+              <button 
+                onClick={() => setShowDatePicker(!showDatePicker)} 
+                className="px-4 py-2 bg-white border border-slate-200 rounded-md text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center">
+                <Calendar className="w-4 h-4 mr-2" />
+                Seleccionar Fecha
+              </button>
+              {showDatePicker && <DatePicker />}
+            </div>
+            <button 
+              onClick={navigateToReportes}
+              className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center">
               <TrendingUp className="w-4 h-4 mr-2" />
               Generar Reportes
             </button>
           </div>
         </div>
 
-
-
         {/* Tarjetas de resumen */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {summaryCards.map((card, idx) => (
-            <div key={idx} className="bg-white rounded-lg shadow-sm border border-slate-200 p-5">
-              <div className="flex justify-between mb-4">
-                <div className={`w-12 h-12 rounded-lg ${card.color} text-white flex items-center justify-center`}>
-                  {card.icon}
+          {loading ? (
+            Array(4).fill(0).map((_, idx) => (
+              <div key={idx} className="bg-white rounded-lg shadow-sm border border-slate-200 p-5 animate-pulse">
+                <div className="flex justify-between mb-4">
+                  <div className="w-12 h-12 rounded-lg bg-slate-200"></div>
+                  <div className="w-10 h-4 bg-slate-200 rounded"></div>
                 </div>
-                <div className="text-right">
-                  <span className={`text-xs font-semibold ${card.trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>{card.trend}</span>
-                </div>
+                <div className="h-4 bg-slate-200 rounded w-3/4 mb-3"></div>
+                <div className="h-8 bg-slate-200 rounded w-1/2"></div>
               </div>
-              <h3 className="text-sm font-medium text-slate-500 mb-1">{card.title}</h3>
-              <p className="text-2xl font-bold text-slate-800">{card.value}</p>
-            </div>
-          ))}
+            ))
+          ) : (
+            summaryData.map((card, idx) => (
+              <div key={idx} className="bg-white rounded-lg shadow-sm border border-slate-200 p-5">
+                <div className="flex justify-between mb-4">
+                  <div className={`w-12 h-12 rounded-lg ${card.color} text-white flex items-center justify-center`}>
+                    {card.icon === 'dollar' ? <DollarSign className="w-5 h-5" /> : 
+                     card.icon === 'user' ? <UserPlus className="w-5 h-5" /> : 
+                     card.icon === 'package' ? <Package className="w-5 h-5" /> : 
+                     <Percent className="w-5 h-5" />}
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-xs font-semibold ${card.trend.startsWith('+') ? 'text-green-600' : 'text-red-600'}`}>{card.trend}</span>
+                  </div>
+                </div>
+                <h3 className="text-sm font-medium text-slate-500 mb-1">{card.title}</h3>
+                <p className="text-2xl font-bold text-slate-800">{card.value}</p>
+              </div>
+            ))
+          )}
         </div>
 
         {/* Grid de dos columnas para secciones principales */}
@@ -123,42 +203,54 @@ export default function HomePage() {
           <div className="bg-white rounded-lg shadow-sm border border-slate-200 lg:col-span-2">
             <div className="p-5 border-b border-slate-200 flex justify-between items-center">
               <h2 className="font-semibold text-slate-800">Productos más vendidos</h2>
-              <button className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+              <button 
+                onClick={navigateToProductos}
+                className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
                 Ver todos
                 <ChevronRight className="w-4 h-4 ml-1" />
               </button>
             </div>
             <div className="p-5">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-xs font-semibold uppercase text-slate-500 border-b border-slate-200">
-                      <th className="px-3 py-3">Producto</th>
-                      <th className="px-3 py-3">Categoría</th>
-                      <th className="px-3 py-3 text-center">Ventas</th>
-                      <th className="px-3 py-3 text-center">Stock</th>
-                      <th className="px-3 py-3 text-right">Precio</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topProducts.map((product) => (
-                      <tr key={product.id} className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="px-3 py-3 text-sm font-medium text-slate-800">{product.name}</td>
-                        <td className="px-3 py-3 text-sm text-slate-500">{product.category}</td>
-                        <td className="px-3 py-3 text-sm text-center">{product.sales}</td>
-                        <td className="px-3 py-3 text-sm text-center">
-                          <span className={`text-xs font-semibold py-1 px-2 rounded-full ${
-                            product.stock < 10 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                          }`}>
-                            {product.stock}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-sm text-right font-medium">{product.price}</td>
+              {loading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-6 bg-slate-200 rounded w-full mb-4"></div>
+                  {Array(5).fill(0).map((_, idx) => (
+                    <div key={idx} className="h-12 bg-slate-200 rounded w-full"></div>
+                  ))}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-xs font-semibold uppercase text-slate-500 border-b border-slate-200">
+                        <th className="px-3 py-3">Producto</th>
+                        <th className="px-3 py-3">Categoría</th>
+                        <th className="px-3 py-3 text-center">Ventas</th>
+                        <th className="px-3 py-3 text-center">Stock</th>
+                        <th className="px-3 py-3 text-right">Precio</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {topProducts.map((product) => (
+                        <tr key={product.id_producto} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
+                            onClick={() => router.push(`/productos/${product.id_producto}`)}>
+                          <td className="px-3 py-3 text-sm font-medium text-slate-800">{product.nombre}</td>
+                          <td className="px-3 py-3 text-sm text-slate-500">{product.categoria}</td>
+                          <td className="px-3 py-3 text-sm text-center">{product.total_vendido}</td>
+                          <td className="px-3 py-3 text-sm text-center">
+                            <span className={`text-xs font-semibold py-1 px-2 rounded-full ${
+                              product.stock_actual < product.stock_minimo ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                            }`}>
+                              {product.stock_actual}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-sm text-right font-medium">${parseFloat(product.precio).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
 
@@ -171,131 +263,111 @@ export default function HomePage() {
               </div>
             </div>
             <div className="p-3">
-              <div className="space-y-1">
-                {recentAlerts.map((alert) => (
-                  <div key={alert.id} className="p-2 rounded-md hover:bg-slate-50">
-                    <div className="flex items-start">
-                      <div className={`mt-0.5 rounded-full p-1.5 ${
-                        alert.type === 'stock' ? 'bg-red-100 text-red-600' : 
-                        alert.type === 'price' ? 'bg-blue-100 text-blue-600' : 
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        <AlertCircle className="w-4 h-4" />
-                      </div>
-                      <div className="ml-3 flex-1">
-                        <p className="text-sm text-slate-600">{alert.message}</p>
-                        <div className="flex items-center mt-1">
-                          <Clock className="w-3 h-3 text-slate-400" />
-                          <span className="ml-1 text-xs text-slate-400">Hace {alert.time}</span>
+              {loading ? (
+                <div className="animate-pulse space-y-3">
+                  {Array(4).fill(0).map((_, idx) => (
+                    <div key={idx} className="h-16 bg-slate-200 rounded w-full"></div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {recentAlerts.map((alert) => (
+                    <div key={alert.id_alerta} className="p-2 rounded-md hover:bg-slate-50 cursor-pointer"
+                         onClick={() => router.push(`/alertas/${alert.id_alerta}`)}>
+                      <div className="flex items-start">
+                        <div className={`mt-0.5 rounded-full p-1.5 ${
+                          alert.prioridad_alerta === 'Alta' ? 'bg-red-100 text-red-600' : 
+                          alert.prioridad_alerta === 'Media' ? 'bg-amber-100 text-amber-600' : 
+                          'bg-blue-100 text-blue-600'
+                        }`}>
+                          <AlertCircle className="w-4 h-4" />
+                        </div>
+                        <div className="ml-3 flex-1">
+                          <p className="text-sm text-slate-600">{alert.mensaje}</p>
+                          <div className="flex items-center mt-1">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span className="ml-1 text-xs text-slate-400">
+                              {new Date(alert.fecha_alerta).toLocaleString('es-ES', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                day: '2-digit',
+                                month: '2-digit'
+                              })}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="p-3 border-t border-slate-100">
-              <button className="w-full py-2 text-sm font-medium text-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md">
+              <button 
+                onClick={navigateToAlertas}
+                className="w-full py-2 text-sm font-medium text-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md">
                 Ver todas las alertas
               </button>
             </div>
           </div>
         </div>
 
-        {/* Actividades recientes y calendario */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Actividades recientes */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 lg:col-span-2">
-            <div className="p-5 border-b border-slate-200 flex justify-between items-center">
-              <h2 className="font-semibold text-slate-800">Actividades recientes</h2>
-              <button className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
-                Ver historial
-                <ArrowRight className="w-4 h-4 ml-1" />
-              </button>
-            </div>
-            <div className="p-5">
-              <div className="space-y-4">
+        {/* Actividades Recientes */}
+        <div className="bg-white rounded-lg shadow-sm border border-slate-200 mb-8">
+          <div className="p-5 border-b border-slate-200 flex justify-between items-center">
+            <h2 className="font-semibold text-slate-800">Actividades Recientes</h2>
+            <button 
+              onClick={navigateToHistorial}
+              className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+              Ver historial completo
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+          <div className="p-5">
+            {loading ? (
+              <div className="animate-pulse space-y-3">
+                {Array(5).fill(0).map((_, idx) => (
+                  <div key={idx} className="h-16 bg-slate-200 rounded w-full"></div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-3">
                 {recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-start pb-4 border-b border-slate-100 last:border-0 last:pb-0">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      activity.type === 'sale' ? 'bg-green-100 text-green-600' : 
-                      activity.type === 'inventory' ? 'bg-blue-100 text-blue-600' : 
-                      activity.type === 'product' ? 'bg-purple-100 text-purple-600' : 
-                      activity.type === 'return' ? 'bg-amber-100 text-amber-600' : 
-                      'bg-slate-100 text-slate-600'
+                  <div key={activity.id_actualizacion} className="flex items-start p-2 rounded-md hover:bg-slate-50 cursor-pointer"
+                       onClick={() => router.push(`/historial/${activity.id_actualizacion}`)}>
+                    <div className={`mt-0.5 rounded-full p-1.5 ${
+                      activity.tipo_cambio === 'Stock' ? 'bg-green-100 text-green-600' : 
+                      activity.tipo_cambio === 'Precio' ? 'bg-blue-100 text-blue-600' : 
+                      'bg-purple-100 text-purple-600'
                     }`}>
-                      {activity.type === 'sale' && <ShoppingCart className="w-4 h-4" />}
-                      {activity.type === 'inventory' && <Package className="w-4 h-4" />}
-                      {activity.type === 'product' && <Tag className="w-4 h-4" />}
-                      {activity.type === 'return' && <ArrowRight className="w-4 h-4 transform rotate-180" />}
+                      {activity.tipo_cambio === 'Stock' ? <Package className="w-4 h-4" /> : 
+                       activity.tipo_cambio === 'Precio' ? <DollarSign className="w-4 h-4" /> : 
+                       <Tag className="w-4 h-4" />}
                     </div>
                     <div className="ml-3 flex-1">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-sm text-slate-800">
-                            <span className="font-medium">{activity.user}</span>
-                            <span className="ml-1 text-slate-600">{activity.action}</span>
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">{activity.details}</p>
-                        </div>
-                        <span className="text-xs text-slate-400">{activity.time}</span>
+                      <p className="text-sm">
+                        <span className="font-medium text-slate-800">{activity.nombre_usuario}</span>
+                        <span className="text-slate-600"> {activity.cambio_realizado}</span>
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Producto: {activity.nombre_producto} - Valor anterior: {activity.valor_anterior} - Nuevo valor: {activity.valor_nuevo}
+                      </p>
+                      <div className="flex items-center mt-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span className="ml-1 text-xs text-slate-400">
+                          {new Date(activity.fecha_actualizacion).toLocaleString('es-ES', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            day: '2-digit',
+                            month: '2-digit'
+                          })}
+                        </span>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-
-          {/* Mini calendario / Próximas fechas */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-            <div className="p-5 border-b border-slate-200">
-              <h2 className="font-semibold text-slate-800">Próximos eventos</h2>
-            </div>
-            <div className="px-5 py-2">
-              {dates.map((date, idx) => (
-                <div key={idx} className="py-3 border-b border-slate-100 last:border-0">
-                  <div className="flex items-center">
-                    <div className="w-12 text-center">
-                      <span className="block text-xs text-slate-500">{date.toLocaleDateString('es-ES', { weekday: 'short' })}</span>
-                      <span className="block text-lg font-bold text-slate-800 mt-1">{date.getDate()}</span>
-                    </div>
-                    <div className="ml-4 flex-1">
-                      {idx === 0 && (
-                        <div className="bg-blue-50 border border-blue-100 rounded-md p-2">
-                          <p className="text-sm font-medium text-blue-800">Inventario mensual</p>
-                          <p className="text-xs text-blue-600 mt-1">9:00 AM - 12:00 PM</p>
-                        </div>
-                      )}
-                      {idx === 2 && (
-                        <div className="bg-purple-50 border border-purple-100 rounded-md p-2">
-                          <p className="text-sm font-medium text-purple-800">Reunión de ventas</p>
-                          <p className="text-xs text-purple-600 mt-1">2:00 PM - 3:30 PM</p>
-                        </div>
-                      )}
-                      {idx === 4 && (
-                        <div className="bg-amber-50 border border-amber-100 rounded-md p-2">
-                          <p className="text-sm font-medium text-amber-800">Entrega de pedidos</p>
-                          <p className="text-xs text-amber-600 mt-1">10:00 AM - 11:00 AM</p>
-                        </div>
-                      )}
-                      
-                      {(idx !== 0 && idx !== 2 && idx !== 4) && (
-                        <div className="h-12 flex items-center">
-                          <p className="text-sm text-slate-500">Sin eventos programados</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="p-3 border-t border-slate-100">
-              <button className="w-full py-2 text-sm font-medium text-center text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md flex items-center justify-center">
-                <Calendar className="w-4 h-4 mr-2" />
-                Ver calendario completo
-              </button>
-            </div>
+            )}
           </div>
         </div>
       </main>

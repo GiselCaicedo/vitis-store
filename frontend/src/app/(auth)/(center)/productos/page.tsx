@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Package,
     Search,
@@ -20,110 +20,67 @@ import {
     Save,
     Image
 } from 'lucide-react';
+import { createCategoria, createProducto, deleteProducto, getDashboardData, updateProducto, updateStock, deleteCategoria, updateCategoria } from '@src/service/conexion';
+// Importar las funciones de conexion.ts en lugar de axios
 
 export default function ProductosPage() {
     // Estados para las diferentes secciones y datos
     const [activeTab, setActiveTab] = useState('lista');
     const [showForm, setShowForm] = useState(false);
     const [showCategoryForm, setShowCategoryForm] = useState(false);
+    const [showCategoryEditForm, setShowCategoryEditForm] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [selectedCategory, setSelectedCategory] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('');
     const [stockFilter, setStockFilter] = useState('');
+    const [filteredCategoryProducts, setFilteredCategoryProducts] = useState([]);
+    const [showCategoryProducts, setShowCategoryProducts] = useState(false);
 
-    // Datos simulados para las categorías
-    const categorias = [
-        { id: 1, nombre: 'Electrónica', productos: 48, color: 'bg-blue-500' },
-        { id: 2, nombre: 'Ropa', productos: 124, color: 'bg-green-500' },
-        { id: 3, nombre: 'Hogar', productos: 76, color: 'bg-purple-500' },
-        { id: 4, nombre: 'Deportes', productos: 35, color: 'bg-amber-500' },
-        { id: 5, nombre: 'Belleza', productos: 62, color: 'bg-pink-500' },
-        { id: 6, nombre: 'Juguetes', productos: 29, color: 'bg-teal-500' },
-        { id: 7, nombre: 'Libros', productos: 54, color: 'bg-indigo-500' },
-        { id: 8, nombre: 'Alimentos', productos: 42, color: 'bg-red-500' },
-    ];
+    // Estados para almacenar datos de la API
+    const [loading, setLoading] = useState(true);
+    const [categorias, setCategorias] = useState([]);
+    const [productos, setProductos] = useState([]);
+    const [stockResumen, setStockResumen] = useState({ bajo: 0, medio: 0, bueno: 0 });
+    const [stockDetalle, setStockDetalle] = useState([]);
 
-    // Datos simulados para los productos
-    const productos = [
-        {
-            id: 1,
-            nombre: 'Smartphone Galaxy S22',
-            sku: 'TECH-1001',
-            categoria: 'Electrónica',
-            precio: 899,
-            costo: 650,
-            stock: 18,
-            descripcion: 'Smartphone de última generación con cámara de alta resolución y 5G.',
-            imagen: '/placeholder-product.jpg',
-            fechaCreacion: '2023-12-15'
-        },
-        {
-            id: 2,
-            nombre: 'Zapatillas Deportivas Air Max',
-            sku: 'SHOE-2050',
-            categoria: 'Deportes',
-            precio: 129,
-            costo: 75,
-            stock: 25,
-            descripcion: 'Zapatillas deportivas con tecnología de amortiguación avanzada.',
-            imagen: '/placeholder-product.jpg',
-            fechaCreacion: '2024-01-05'
-        },
-        {
-            id: 3,
-            nombre: 'Auriculares Bluetooth Pro',
-            sku: 'TECH-2342',
-            categoria: 'Electrónica',
-            precio: 79,
-            costo: 45,
-            stock: 12,
-            descripcion: 'Auriculares inalámbricos con cancelación de ruido y alta fidelidad.',
-            imagen: '/placeholder-product.jpg',
-            fechaCreacion: '2024-01-20'
-        },
-        {
-            id: 4,
-            nombre: 'Camiseta Premium Algodón',
-            sku: 'CLOTH-5523',
-            categoria: 'Ropa',
-            precio: 35,
-            costo: 12,
-            stock: 45,
-            descripcion: 'Camiseta de algodón 100% orgánico con diseño exclusivo.',
-            imagen: '/placeholder-product.jpg',
-            fechaCreacion: '2024-01-18'
-        },
-        {
-            id: 5,
-            nombre: 'Reloj Inteligente Serie 7',
-            sku: 'TECH-3256',
-            categoria: 'Electrónica',
-            precio: 299,
-            costo: 190,
-            stock: 9,
-            descripcion: 'Smartwatch con monitor cardíaco, GPS y resistencia al agua.',
-            imagen: '/placeholder-product.jpg',
-            fechaCreacion: '2023-11-10'
-        },
-        {
-            id: 6,
-            nombre: 'Set de Sartenes Antiadherentes',
-            sku: 'HOME-4471',
-            categoria: 'Hogar',
-            precio: 89,
-            costo: 52,
-            stock: 22,
-            descripcion: 'Juego de 3 sartenes con recubrimiento antiadherente libre de PFOA.',
-            imagen: '/placeholder-product.jpg',
-            fechaCreacion: '2023-12-28'
-        },
-    ];
+    // Obtener datos del dashboard
+    useEffect(() => {
+        const fetchDashboardData = async () => {
+            try {
+                setLoading(true);
+                // Usar la función de conexion.ts en lugar de axios directamente
+                const data = await getDashboardData({
+                    searchTerm,
+                    categoryFilter,
+                    stockFilter
+                });
+
+                // Actualizar estados con los datos recibidos
+                setCategorias(data.categorias);
+                setProductos(data.productos);
+                setStockResumen(data.stockResumen);
+                setStockDetalle(data.stockDetalle);
+
+                setLoading(false);
+            } catch (error) {
+                console.error('Error al cargar datos:', error);
+                setLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, [searchTerm, categoryFilter, stockFilter]); // Recargar cuando cambien los filtros
 
     // Filtrar productos según los criterios
     const filteredProducts = productos.filter(producto => {
-        // Filtro por búsqueda
-        const matchesSearch = producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            producto.sku.toLowerCase().includes(searchTerm.toLowerCase());
+        // Filtro por búsqueda - Verificar que los valores existan antes de usar toLowerCase()
+        const matchesSearch =
+            (producto.nombre && searchTerm ? producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
+            (producto.sku && searchTerm ? producto.sku.toLowerCase().includes(searchTerm.toLowerCase()) : false);
+
+        // Si no hay término de búsqueda, mostrar todos
+        const showAll = !searchTerm;
 
         // Filtro por categoría
         const matchesCategory = categoryFilter === '' || producto.categoria === categoryFilter;
@@ -134,7 +91,7 @@ export default function ProductosPage() {
             (stockFilter === 'medium' && producto.stock >= 10 && producto.stock < 30) ||
             (stockFilter === 'high' && producto.stock >= 30);
 
-        return matchesSearch && matchesCategory && matchesStock;
+        return (matchesSearch || showAll) && matchesCategory && matchesStock;
     });
 
     // Función para abrir el formulario de nuevo producto
@@ -154,12 +111,291 @@ export default function ProductosPage() {
         setShowCategoryForm(true);
     };
 
+    // Función para abrir el formulario de edición de categoría
+    const openEditCategoryForm = (category) => {
+        setSelectedCategory(category);
+        setShowCategoryEditForm(true);
+    };
+
     // Función para cerrar cualquier formulario
     const closeForm = () => {
         setShowForm(false);
         setShowCategoryForm(false);
+        setShowCategoryEditForm(false);
+        setSelectedCategory(null);
     };
 
+    // Función para mostrar los productos de una categoría
+    const handleViewCategoryProducts = (categoryId) => {
+        const categoryProducts = productos.filter(producto => producto.id_categoria === categoryId);
+        setFilteredCategoryProducts(categoryProducts);
+        setShowCategoryProducts(true);
+        setActiveTab('categoria-productos');
+    };
+
+    // Función para volver a la lista de categorías
+    const backToCategories = () => {
+        setShowCategoryProducts(false);
+        setActiveTab('categorias');
+    };
+
+    // Función para guardar un nuevo producto o actualizar uno existente
+    const handleSaveProduct = async (productData) => {
+        try {
+            if (selectedProduct) {
+                // Actualizar producto existente usando la función de conexion.ts
+                await updateProducto(selectedProduct.id, productData);
+            } else {
+                // Crear nuevo producto usando la función de conexion.ts
+                await createProducto(productData);
+            }
+
+            // Recargar datos usando la función de conexion.ts
+            const data = await getDashboardData();
+            setProductos(data.productos);
+
+            closeForm();
+        } catch (error) {
+            console.error('Error al guardar producto:', error);
+            // Aquí podrías mostrar un mensaje de error
+        }
+    };
+
+    // Función para eliminar un producto
+    const handleDeleteProduct = async (productId) => {
+        if (window.confirm('¿Está seguro que desea eliminar este producto?')) {
+            try {
+                // Eliminar producto usando la función de conexion.ts
+                await deleteProducto(productId);
+
+                // Recargar datos usando la función de conexion.ts
+                const data = await getDashboardData();
+                setProductos(data.productos);
+            } catch (error) {
+                console.error('Error al eliminar producto:', error);
+                // Aquí podrías mostrar un mensaje de error
+            }
+        }
+    };
+
+    // Función para eliminar una categoría
+    const handleDeleteCategory = async (categoryId) => {
+        if (window.confirm('¿Está seguro que desea eliminar esta categoría? Esto podría afectar a los productos asociados.')) {
+            try {
+                // Eliminar categoría usando la función de conexion.ts
+                await deleteCategoria(categoryId);
+
+                // Recargar datos usando la función de conexion.ts
+                const data = await getDashboardData();
+                setCategorias(data.categorias);
+            } catch (error) {
+                console.error('Error al eliminar categoría:', error);
+                // Aquí podrías mostrar un mensaje de error
+            }
+        }
+    };
+
+    // Función para actualizar una categoría
+    const handleUpdateCategory = async (categoryId, categoryData) => {
+        try {
+            // Actualizar categoría usando la función de conexion.ts
+            await updateCategoria(categoryId, categoryData);
+
+            // Recargar datos usando la función de conexion.ts
+            const data = await getDashboardData();
+            setCategorias(data.categorias);
+            closeForm();
+        } catch (error) {
+            console.error('Error al actualizar categoría:', error);
+            // Aquí podrías mostrar un mensaje de error
+        }
+    };
+
+    // Función para exportar datos a CSV
+    const handleExport = (data, filename) => {
+        try {
+            let csvContent = '';
+
+            // Si son productos
+            if (filename.includes('productos')) {
+                // Encabezados
+                csvContent = 'ID,Nombre,SKU,Categoría,Precio,Stock,Fecha Creación\n';
+
+                // Datos
+                data.forEach(item => {
+                    csvContent += `${item.id},"${item.nombre}",${item.sku},"${item.categoria}",${item.precio},${item.stock},${new Date(item.fechaCreacion).toLocaleDateString()}\n`;
+                });
+            }
+            // Si son categorías
+            else if (filename.includes('categorias')) {
+                // Encabezados
+                csvContent = 'ID,Nombre,Productos\n';
+
+                // Datos
+                data.forEach(item => {
+                    csvContent += `${item.id},"${item.nombre}",${item.productos}\n`;
+                });
+            }
+            // Si es stock
+            else if (filename.includes('stock')) {
+                // Encabezados
+                csvContent = 'ID,Nombre,SKU,Stock Actual,Stock Mínimo,Estado\n';
+
+                // Datos
+                data.forEach(item => {
+                    csvContent += `${item.id},"${item.nombre}",${item.sku},${item.stock_actual},${item.stock_minimo},"${item.estado_stock}"\n`;
+                });
+            }
+
+            // Crear blob y link para descarga
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `${filename}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Error al exportar datos:', error);
+            alert('Error al exportar datos. Intente de nuevo.');
+        }
+    };
+
+    // Función para filtrar stock
+    // Función para filtrar stock
+    const handleFilterStock = () => {
+        // Crear un modal de filtro
+        const stockFilterModal = document.createElement('div');
+        stockFilterModal.className = 'fixed inset-0 z-50 overflow-y-auto';
+        stockFilterModal.innerHTML = `
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 transition-opacity">
+                <div class="absolute inset-0 bg-slate-900 opacity-75"></div>
+            </div>
+            
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-6 py-5 border-b border-slate-200 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-slate-800">Filtrar por Estado de Stock</h3>
+                    <button id="closeStockFilter" class="text-slate-400 hover:text-slate-500 focus:outline-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                
+                <div class="px-6 py-5">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Nivel de Stock</label>
+                            <div class="space-y-2">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="stockLow" name="stockLevel" value="low" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+                                    <label for="stockLow" class="ml-2 block text-sm text-slate-700">Stock Bajo (&lt; 10)</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="stockMedium" name="stockLevel" value="medium" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+                                    <label for="stockMedium" class="ml-2 block text-sm text-slate-700">Stock Medio (10-30)</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="stockHigh" name="stockLevel" value="high" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+                                    <label for="stockHigh" class="ml-2 block text-sm text-slate-700">Stock Alto (&gt; 30)</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Relación con Stock Mínimo</label>
+                            <div class="space-y-2">
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="belowMinimum" name="stockRelation" value="below" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+                                    <label for="belowMinimum" class="ml-2 block text-sm text-slate-700">Por debajo del mínimo</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="nearMinimum" name="stockRelation" value="near" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+                                    <label for="nearMinimum" class="ml-2 block text-sm text-slate-700">Cerca del mínimo (menos del 20% por encima)</label>
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="aboveMinimum" name="stockRelation" value="above" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded">
+                                    <label for="aboveMinimum" class="ml-2 block text-sm text-slate-700">Por encima del mínimo</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Ordenar por</label>
+                            <select id="sortStock" class="w-full px-3 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="stock_asc">Stock (Menor a Mayor)</option>
+                                <option value="stock_desc">Stock (Mayor a Menor)</option>
+                                <option value="name_asc">Nombre (A-Z)</option>
+                                <option value="name_desc">Nombre (Z-A)</option>
+                                <option value="sku_asc">SKU (Ascendente)</option>
+                                <option value="relation_asc">Relación con mínimo (Crítico primero)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="border-t border-slate-200 mt-6 pt-5 flex justify-end space-x-3">
+                        <button id="resetStockFilter" class="px-4 py-2 border border-slate-200 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50">
+                            Reiniciar Filtros
+                        </button>
+                        <button id="applyStockFilter" class="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700">
+                            Aplicar Filtros
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+        document.body.appendChild(stockFilterModal);
+
+        // Añadir event listeners
+        document.getElementById('closeStockFilter').addEventListener('click', () => {
+            document.body.removeChild(stockFilterModal);
+        });
+
+        document.getElementById('resetStockFilter').addEventListener('click', () => {
+            const checkboxes = stockFilterModal.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+
+            document.getElementById('sortStock').value = 'stock_asc';
+        });
+
+        document.getElementById('applyStockFilter').addEventListener('click', async () => {
+            // Obtener valores seleccionados
+            const selectedStockLevels = Array.from(stockFilterModal.querySelectorAll('input[name="stockLevel"]:checked')).map(el => el.value);
+            const selectedRelations = Array.from(stockFilterModal.querySelectorAll('input[name="stockRelation"]:checked')).map(el => el.value);
+            const sortBy = document.getElementById('sortStock').value;
+
+            // Filtrar los datos de stock
+            try {
+                // Eliminar el modal
+                document.body.removeChild(stockFilterModal);
+
+                // Mostrar indicador de carga
+                setLoading(true);
+
+                // Llamar a la API con los filtros seleccionados
+                const response = await getDashboardData({
+                    stockLevels: selectedStockLevels.length > 0 ? selectedStockLevels : null,
+                    stockRelations: selectedRelations.length > 0 ? selectedRelations : null,
+                    sortBy: sortBy
+                });
+
+                // Actualizar los datos con la respuesta filtrada
+                setStockDetalle(response.stockDetalle);
+
+                // Ocultar indicador de carga
+                setLoading(false);
+            } catch (error) {
+                console.error('Error al aplicar filtros de stock:', error);
+                alert('Error al aplicar los filtros. Por favor, inténtelo de nuevo.');
+                setLoading(false);
+            }
+        });
+    };
     // Tabs para la navegación del módulo
     const tabs = [
         { id: 'lista', label: 'Lista de Productos', icon: <Package className="w-4 h-4" /> },
@@ -167,16 +403,27 @@ export default function ProductosPage() {
         { id: 'stock', label: 'Estado de Stock', icon: <AlertTriangle className="w-4 h-4" /> },
     ];
 
+    // Renderizar loader mientras se cargan los datos
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <main className="container mx-auto px-4 py-6">
                 {/* Encabezado de la página */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Gestión de Productos</h1>
-                        <p className="text-slate-500 mt-1">Administra tu catálogo de productos, categorías y stock</p>
-                    </div>
 
+                    <div className="mb-6">
+                        <h1 className="text-2xl font-semibold text-gray-900">Gestión de Productos</h1>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Administra tu catálogo de productos, categorías y stock
+                        </p>
+                    </div>
                     <div className="mt-4 md:mt-0 flex space-x-2">
                         <button
                             onClick={openNewProductForm}
@@ -186,7 +433,9 @@ export default function ProductosPage() {
                             Nuevo Producto
                         </button>
 
-                        <button className="px-4 py-2 bg-white border border-slate-200 rounded-md text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center">
+                        <button
+                            onClick={() => handleExport(filteredProducts, 'productos-export')}
+                            className="px-4 py-2 bg-white border border-slate-200 rounded-md text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center">
                             <Download className="w-4 h-4 mr-2" />
                             Exportar
                         </button>
@@ -200,8 +449,8 @@ export default function ProductosPage() {
                             <button
                                 key={tab.id}
                                 className={`px-5 py-4 text-sm font-medium border-b-2 flex items-center whitespace-nowrap ${activeTab === tab.id
-                                        ? 'border-blue-600 text-blue-600'
-                                        : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                                    ? 'border-blue-600 text-blue-600'
+                                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
                                     }`}
                                 onClick={() => setActiveTab(tab.id)}
                             >
@@ -308,8 +557,8 @@ export default function ProductosPage() {
                                                     <td className="px-4 py-3 text-sm text-right font-medium">${producto.precio}</td>
                                                     <td className="px-4 py-3 text-sm text-center">
                                                         <span className={`text-xs font-semibold py-1 px-2 rounded-full ${producto.stock < 10 ? 'bg-red-100 text-red-800' :
-                                                                producto.stock < 30 ? 'bg-amber-100 text-amber-800' :
-                                                                    'bg-green-100 text-green-800'
+                                                            producto.stock < 30 ? 'bg-amber-100 text-amber-800' :
+                                                                'bg-green-100 text-green-800'
                                                             }`}>
                                                             {producto.stock}
                                                         </span>
@@ -322,7 +571,10 @@ export default function ProductosPage() {
                                                             >
                                                                 <Edit className="w-4 h-4" />
                                                             </button>
-                                                            <button className="p-1.5 text-red-600 hover:bg-red-50 rounded-md">
+                                                            <button
+                                                                onClick={() => handleDeleteProduct(producto.id)}
+                                                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-md"
+                                                            >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
                                                             <button className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md">
@@ -356,18 +608,26 @@ export default function ProductosPage() {
                     </>
                 )}
 
-                {activeTab === 'categorias' && (
+                {activeTab === 'categorias' && !showCategoryProducts && (
                     <>
                         {/* Sección de categorías */}
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-lg font-semibold text-slate-800">Categorías de Productos</h2>
-                            <button
-                                onClick={openNewCategoryForm}
-                                className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center"
-                            >
-                                <Plus className="w-4 h-4 mr-2" />
-                                Nueva Categoría
-                            </button>
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={openNewCategoryForm}
+                                    className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center"
+                                >
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Nueva Categoría
+                                </button>
+                                <button
+                                    onClick={() => handleExport(categorias, 'categorias-export')}
+                                    className="px-4 py-2 bg-white border border-slate-200 rounded-md text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center">
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Exportar
+                                </button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -379,10 +639,14 @@ export default function ProductosPage() {
                                                 <Tag className="w-5 h-5" />
                                             </div>
                                             <div className="flex space-x-2">
-                                                <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md">
+                                                <button
+                                                    onClick={() => openEditCategoryForm(categoria)}
+                                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md">
                                                     <Edit className="w-4 h-4" />
                                                 </button>
-                                                <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md">
+                                                <button
+                                                    onClick={() => handleDeleteCategory(categoria.id)}
+                                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -391,13 +655,102 @@ export default function ProductosPage() {
                                         <p className="text-sm text-slate-500 mt-1">{categoria.productos} productos</p>
                                     </div>
                                     <div className="px-5 py-3 bg-slate-50 border-t border-slate-200">
-                                        <button className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center">
+                                        <button
+                                            onClick={() => handleViewCategoryProducts(categoria.id)}
+                                            className="w-full text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center">
                                             Ver productos
                                             <ChevronRight className="w-4 h-4 ml-1" />
                                         </button>
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </>
+                )}
+
+                {activeTab === 'categoria-productos' && showCategoryProducts && (
+                    <>
+                        {/* Vista de productos de una categoría */}
+                        <div className="flex items-center mb-6">
+                            <button
+                                onClick={backToCategories}
+                                className="mr-4 px-3 py-1.5 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center"
+                            >
+                                <ChevronRight className="w-4 h-4 mr-1 transform rotate-180" />
+                                Volver a categorías
+                            </button>
+                            <h2 className="text-lg font-semibold text-slate-800">Productos de la categoría</h2>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="text-left text-xs font-semibold uppercase text-slate-500 bg-slate-50 border-b border-slate-200">
+                                            <th className="px-4 py-3">Producto</th>
+                                            <th className="px-4 py-3">SKU</th>
+                                            <th className="px-4 py-3 text-right">Precio</th>
+                                            <th className="px-4 py-3 text-center">Stock</th>
+                                            <th className="px-4 py-3 text-right">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredCategoryProducts.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="5" className="px-4 py-8 text-center text-slate-500">
+                                                    No hay productos en esta categoría.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            filteredCategoryProducts.map((producto) => (
+                                                <tr key={producto.id} className="border-b border-slate-100 hover:bg-slate-50 last:border-b-0">
+                                                    <td className="px-4 py-3">
+                                                        <div className="flex items-center">
+                                                            <div className="h-10 w-10 flex-shrink-0 mr-3 bg-slate-100 rounded-md flex items-center justify-center">
+                                                                <Image className="w-5 h-5 text-slate-400" />
+                                                            </div>
+                                                            <div>
+                                                                <div className="font-medium text-slate-800">{producto.nombre}</div>
+                                                                <div className="text-xs text-slate-500 mt-0.5">
+                                                                    Creado: {new Date(producto.fechaCreacion).toLocaleDateString()}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-slate-600">{producto.sku}</td>
+                                                    <td className="px-4 py-3 text-sm text-right font-medium">${producto.precio}</td>
+                                                    <td className="px-4 py-3 text-sm text-center">
+                                                        <span className={`text-xs font-semibold py-1 px-2 rounded-full ${producto.stock < 10 ? 'bg-red-100 text-red-800' :
+                                                            producto.stock < 30 ? 'bg-amber-100 text-amber-800' :
+                                                                'bg-green-100 text-green-800'
+                                                            }`}>
+                                                            {producto.stock}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <div className="flex justify-end space-x-2">
+                                                            <button
+                                                                onClick={() => openEditProductForm(producto)}
+                                                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md">
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteProduct(producto.id)}
+                                                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-md"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                            <button className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md">
+                                                                <EyeIcon className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </>
                 )}
@@ -413,7 +766,7 @@ export default function ProductosPage() {
                                     </div>
                                     <h3 className="text-lg font-semibold text-slate-800 mb-1">Stock Bajo</h3>
                                     <p className="text-3xl font-bold text-red-600">
-                                        {productos.filter(p => p.stock < 10).length}
+                                        {stockResumen.bajo}
                                     </p>
                                     <p className="text-sm text-slate-500 mt-1">Productos con menos de 10 unidades</p>
                                 </div>
@@ -426,7 +779,7 @@ export default function ProductosPage() {
                                     </div>
                                     <h3 className="text-lg font-semibold text-slate-800 mb-1">Stock Medio</h3>
                                     <p className="text-3xl font-bold text-amber-600">
-                                        {productos.filter(p => p.stock >= 10 && p.stock < 30).length}
+                                        {stockResumen.medio}
                                     </p>
                                     <p className="text-sm text-slate-500 mt-1">Productos entre 10 y 30 unidades</p>
                                 </div>
@@ -439,23 +792,28 @@ export default function ProductosPage() {
                                     </div>
                                     <h3 className="text-lg font-semibold text-slate-800 mb-1">Stock Bueno</h3>
                                     <p className="text-3xl font-bold text-green-600">
-                                        {productos.filter(p => p.stock >= 30).length}
+                                        {stockResumen.bueno}
                                     </p>
                                     <p className="text-sm text-slate-500 mt-1">Productos con más de 30 unidades</p>
                                 </div>
                             </div>
                         </div>
 
+
                         {/* Tabla de stock */}
                         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
                             <div className="p-4 border-b border-slate-200 flex justify-between items-center">
                                 <h3 className="font-semibold text-slate-800">Estado detallado de stock</h3>
                                 <div className="flex space-x-2">
-                                    <button className="px-3 py-1.5 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
+                                    <button
+                                        onClick={handleFilterStock}
+                                        className="px-3 py-1.5 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
                                         <Filter className="w-4 h-4 mr-2" />
                                         Filtrar
                                     </button>
-                                    <button className="px-3 py-1.5 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
+                                    <button
+                                        onClick={() => handleExport(stockDetalle, 'stock-detalle-export')}
+                                        className="px-3 py-1.5 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
                                         <Download className="w-4 h-4 mr-2" />
                                         Exportar
                                     </button>
@@ -475,44 +833,29 @@ export default function ProductosPage() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {productos.map((producto) => {
-                                            // Calcular estado de stock
-                                            const stockMinimo = 10; // Ejemplo, en una app real sería personalizado por producto
-                                            let stockStatus = 'good';
-                                            let statusColor = 'bg-green-100 text-green-800';
-                                            let statusText = 'Óptimo';
+                                        {stockDetalle.map((producto) => (
+                                            <tr key={producto.id} className="border-b border-slate-100 hover:bg-slate-50 last:border-b-0">
+                                                <td className="px-4 py-3">
+                                                    <div className="font-medium text-slate-800">{producto.nombre}</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-600">{producto.sku}</td>
+                                                <td className="px-4 py-3 text-sm text-center font-medium">{producto.stock_actual}</td>
+                                                <td className="px-4 py-3 text-sm text-center text-slate-600">{producto.stock_minimo}</td>
+                                                <td className="px-4 py-3 text-sm text-center">
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${producto.status_color}`}>
+                                                        {producto.estado_stock}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        onClick={() => updateStock(producto.id, producto.stock_actual)}
+                                                        className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+                                                        Actualizar Stock
+                                                    </button>
+                                                </td>
 
-                                            if (producto.stock < stockMinimo) {
-                                                stockStatus = 'low';
-                                                statusColor = 'bg-red-100 text-red-800';
-                                                statusText = 'Bajo';
-                                            } else if (producto.stock < stockMinimo * 3) {
-                                                stockStatus = 'medium';
-                                                statusColor = 'bg-amber-100 text-amber-800';
-                                                statusText = 'Medio';
-                                            }
-
-                                            return (
-                                                <tr key={producto.id} className="border-b border-slate-100 hover:bg-slate-50 last:border-b-0">
-                                                    <td className="px-4 py-3">
-                                                        <div className="font-medium text-slate-800">{producto.nombre}</div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-slate-600">{producto.sku}</td>
-                                                    <td className="px-4 py-3 text-sm text-center font-medium">{producto.stock}</td>
-                                                    <td className="px-4 py-3 text-sm text-center text-slate-600">{stockMinimo}</td>
-                                                    <td className="px-4 py-3 text-sm text-center">
-                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}`}>
-                                                            {statusText}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <button className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                                                            Actualizar Stock
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
+                                            </tr>
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>
@@ -543,134 +886,186 @@ export default function ProductosPage() {
                                 </button>
                             </div>
 
-                            <div className="px-6 py-5">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Nombre del Producto *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Ingrese el nombre del producto"
-                                            defaultValue={selectedProduct?.nombre || ''}
-                                        />
-                                    </div>
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.target);
+                                const productData = {
+                                    nombre: formData.get('nombre'),
+                                    sku: formData.get('sku'),
+                                    idCategoria: formData.get('categoria'),
+                                    stock: parseInt(formData.get('stock')),
+                                    stockMinimo: parseInt(formData.get('stockMinimo')),
+                                    precio: parseFloat(formData.get('precio')),
+                                    costo: parseFloat(formData.get('costo')),
+                                    descripcion: formData.get('descripcion'),
+                                    imagen: formData.get('imagen') || (selectedProduct?.imagen || '/placeholder-product.jpg')
+                                };
+                                handleSaveProduct(productData);
+                            }}>
+                                <div className="px-6 py-5">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Nombre del Producto *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="nombre"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Ingrese el nombre del producto"
+                                                defaultValue={selectedProduct?.nombre || ''}
+                                                required
+                                            />
+                                        </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            SKU *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Código único de producto"
-                                            defaultValue={selectedProduct?.sku || ''}
-                                        />
-                                    </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                SKU *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="sku"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Código único de producto"
+                                                defaultValue={selectedProduct?.sku || ''}
+                                                required
+                                            />
+                                        </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Categoría *
-                                        </label>
-                                        <select
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            defaultValue={selectedProduct?.categoria || ''}
-                                        >
-                                            <option value="">Seleccionar categoría</option>
-                                            {categorias.map(cat => (
-                                                <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
-                                            ))}
-                                        </select>
-                                    </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Categoría *
+                                            </label>
+                                            <select
+                                                name="categoria"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                defaultValue={selectedProduct?.id_categoria || ''}
+                                                required
+                                            >
+                                                <option value="">Seleccionar categoría</option>
+                                                {categorias.map(cat => (
+                                                    <option key={cat.id} value={cat.id}>{cat.nombre}</option>
+                                                ))}
+                                            </select>
+                                        </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Stock Actual *
-                                        </label>
-                                        <input
-                                            type="number"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Cantidad disponible"
-                                            defaultValue={selectedProduct?.stock || ''}
-                                        />
-                                    </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Stock Actual *
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="stock"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Cantidad disponible"
+                                                defaultValue={selectedProduct?.stock || ''}
+                                                min="0"
+                                                required
+                                            />
+                                        </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Precio de Venta ($) *
-                                        </label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Precio de venta"
-                                            defaultValue={selectedProduct?.precio || ''}
-                                        />
-                                    </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Stock Mínimo *
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="stockMinimo"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Stock mínimo para alertas"
+                                                defaultValue={selectedProduct?.stock_minimo || ''}
+                                                min="0"
+                                                required
+                                            />
+                                        </div>
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Costo ($)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Costo del producto"
-                                            defaultValue={selectedProduct?.costo || ''}
-                                        />
-                                    </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Precio de Venta ($) *
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="precio"
+                                                step="0.01"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Precio de venta"
+                                                defaultValue={selectedProduct?.precio || ''}
+                                                min="0"
+                                                required
+                                            />
+                                        </div>
 
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Descripción
-                                        </label>
-                                        <textarea
-                                            rows="4"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Descripción detallada del producto"
-                                            defaultValue={selectedProduct?.descripcion || ''}
-                                        ></textarea>
-                                    </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Costo ($)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="costo"
+                                                step="0.01"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Costo del producto"
+                                                defaultValue={selectedProduct?.costo || ''}
+                                                min="0"
+                                            />
+                                        </div>
 
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Imagen del Producto
-                                        </label>
-                                        <div className="mt-1 flex items-center">
-                                            <div className="w-24 h-24 border border-slate-200 rounded-md overflow-hidden bg-slate-50 mr-4 flex items-center justify-center">
-                                                {selectedProduct?.imagen ? (
-                                                    <img
-                                                        src="/api/placeholder/100/100"
-                                                        alt="Imagen del producto"
-                                                        className="w-full h-full object-cover"
-                                                    />
-                                                ) : (
-                                                    <Image className="w-8 h-8 text-slate-300" />
-                                                )}
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Descripción
+                                            </label>
+                                            <textarea
+                                                name="descripcion"
+                                                rows="4"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Descripción detallada del producto"
+                                                defaultValue={selectedProduct?.descripcion || ''}
+                                            ></textarea>
+                                        </div>
+
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Imagen del Producto
+                                            </label>
+                                            <input type="hidden" name="imagen" value={selectedProduct?.imagen || ''} />
+                                            <div className="mt-1 flex items-center">
+                                                <div className="w-24 h-24 border border-slate-200 rounded-md overflow-hidden bg-slate-50 mr-4 flex items-center justify-center">
+                                                    {selectedProduct?.imagen ? (
+                                                        <img
+                                                            src="/api/placeholder/100/100"
+                                                            alt="Imagen del producto"
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <Image className="w-8 h-8 text-slate-300" />
+                                                    )}
+                                                </div>
+                                                <button type="button" className="px-4 py-2 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
+                                                    <Upload className="w-4 h-4 mr-2" />
+                                                    Subir imagen
+                                                </button>
                                             </div>
-                                            <button className="px-4 py-2 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
-                                                <Upload className="w-4 h-4 mr-2" />
-                                                Subir imagen
-                                            </button>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="border-t border-slate-200 pt-5 flex justify-end space-x-3">
-                                    <button
-                                        onClick={closeForm}
-                                        className="px-4 py-2 border border-slate-200 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center">
-                                        <Save className="w-4 h-4 mr-2" />
-                                        {selectedProduct ? 'Guardar Cambios' : 'Crear Producto'}
-                                    </button>
+                                    <div className="border-t border-slate-200 pt-5 flex justify-end space-x-3">
+                                        <button
+                                            type="button"
+                                            onClick={closeForm}
+                                            className="px-4 py-2 border border-slate-200 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center"
+                                        >
+                                            <Save className="w-4 h-4 mr-2" />
+                                            {selectedProduct ? 'Guardar Cambios' : 'Crear Producto'}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -698,58 +1093,169 @@ export default function ProductosPage() {
                                 </button>
                             </div>
 
-                            <div className="px-6 py-5">
-                                <div className="space-y-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Nombre de la Categoría *
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Ej: Electrónica, Ropa, Hogar..."
-                                        />
-                                    </div>
+                            <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.target);
+                                const nombre = formData.get('nombreCategoria');
+                                const descripcion = formData.get('descripcion');
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Descripción (opcional)
-                                        </label>
-                                        <textarea
-                                            rows="3"
-                                            className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Descripción de la categoría"
-                                        ></textarea>
-                                    </div>
+                                try {
+                                    // Usar función de conexion.ts para crear categoría
+                                    await createCategoria({
+                                        nombreCategoria: nombre,
+                                        descripcion: descripcion
+                                    });
 
-                                    <div>
-                                        <label className="block text-sm font-medium text-slate-700 mb-1">
-                                            Color de la Categoría
-                                        </label>
-                                        <div className="flex flex-wrap gap-3 mt-2">
-                                            {['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-amber-500', 'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-red-500'].map((color, idx) => (
-                                                <button
-                                                    key={idx}
-                                                    className={`w-8 h-8 rounded-full ${color} hover:ring-2 hover:ring-offset-2 hover:ring-slate-400 focus:outline-none`}
-                                                ></button>
-                                            ))}
+                                    // Recargar datos de categorías usando la función de conexion.ts
+                                    const data = await getDashboardData();
+                                    setCategorias(data.categorias);
+
+                                    closeForm();
+                                } catch (error) {
+                                    console.error('Error al crear categoría:', error);
+                                }
+                            }}>
+                                <div className="px-6 py-5">
+                                    <div className="space-y-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Nombre de la Categoría *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="nombreCategoria"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Ej: Electrónica, Ropa, Hogar..."
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Descripción (opcional)
+                                            </label>
+                                            <textarea
+                                                name="descripcion"
+                                                rows="3"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Descripción de la categoría"
+                                            ></textarea>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div className="border-t border-slate-200 mt-6 pt-5 flex justify-end space-x-3">
-                                    <button
-                                        onClick={closeForm}
-                                        className="px-4 py-2 border border-slate-200 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center">
-                                        <Save className="w-4 h-4 mr-2" />
-                                        Crear Categoría
-                                    </button>
+                                    <div className="border-t border-slate-200 mt-6 pt-5 flex justify-end space-x-3">
+                                        <button
+                                            type="button"
+                                            onClick={closeForm}
+                                            className="px-4 py-2 border border-slate-200 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center"
+                                        >
+                                            <Save className="w-4 h-4 mr-2" />
+                                            Crear Categoría
+                                        </button>
+                                    </div>
                                 </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal para editar categoría */}
+            {showCategoryEditForm && selectedCategory && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 transition-opacity" onClick={closeForm}>
+                            <div className="absolute inset-0 bg-slate-900 opacity-75"></div>
+                        </div>
+
+                        {/* Modal panel */}
+                        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                            <div className="bg-white px-6 py-5 border-b border-slate-200 flex justify-between items-center">
+                                <h3 className="text-lg font-semibold text-slate-800">
+                                    Editar Categoría
+                                </h3>
+                                <button
+                                    onClick={closeForm}
+                                    className="text-slate-400 hover:text-slate-500 focus:outline-none"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
+
+                            <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.target);
+                                const nombre = formData.get('nombreCategoria');
+                                const descripcion = formData.get('descripcion');
+
+                                try {
+                                    // Usar función de conexion.ts para actualizar categoría
+                                    await updateCategoria(selectedCategory.id, {
+                                        nombreCategoria: nombre,
+                                        descripcion: descripcion
+                                    });
+
+                                    // Recargar datos de categorías
+                                    const data = await getDashboardData();
+                                    setCategorias(data.categorias);
+
+                                    closeForm();
+                                } catch (error) {
+                                    console.error('Error al actualizar categoría:', error);
+                                }
+                            }}>
+                                <div className="px-6 py-5">
+                                    <div className="space-y-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Nombre de la Categoría *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="nombreCategoria"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                defaultValue={selectedCategory.nombre}
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                                                Descripción (opcional)
+                                            </label>
+                                            <textarea
+                                                name="descripcion"
+                                                rows="3"
+                                                className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                defaultValue={selectedCategory.descripcion}
+                                            ></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t border-slate-200 mt-6 pt-5 flex justify-end space-x-3">
+                                        <button
+                                            type="button"
+                                            onClick={closeForm}
+                                            className="px-4 py-2 border border-slate-200 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center"
+                                        >
+                                            <Save className="w-4 h-4 mr-2" />
+                                            Guardar Cambios
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 </div>

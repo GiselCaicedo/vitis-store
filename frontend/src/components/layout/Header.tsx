@@ -19,6 +19,32 @@ import {
   Search,
   User
 } from 'lucide-react';
+import NotificationSystem from '../notificaciones/NotificationSystem';
+import { useRouter } from 'next/navigation';
+
+export function HeaderNotificationsIntegration() {
+  const router = useRouter();
+  
+  // Esta función redirigirá a la página completa de notificaciones
+  const handleViewAllNotifications = () => {
+    router.push('/notificaciones');
+  };
+
+  // Datos iniciales de notificaciones (puedes obtenerlos de una API)
+  const initialNotifications = [
+    // Puedes incluir algunas notificaciones iniciales aquí si lo deseas
+    // o dejar el array vacío y usar las notificaciones de ejemplo del componente
+  ];
+
+  return (
+    <NotificationSystem 
+      initialNotifications={initialNotifications}
+      onViewAll={handleViewAllNotifications}
+    />
+  );
+}
+
+
 
 export default function Header() {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,12 +74,11 @@ export default function Header() {
 
   // Main navigation items
   const mainNav = [
-    { title: 'Inicio', icon: <Home className="w-4 h-4" />, path: '/' },
+    { title: 'Dashboard', icon: <Home className="w-4 h-4" />, path: '/' },
     { title: 'Productos', icon: <Package className="w-4 h-4" />, path: '/productos' },
     { title: 'Inventario', icon: <Archive className="w-4 h-4" />, path: '/inventario' },
     { title: 'Ventas', icon: <ShoppingCart className="w-4 h-4" />, path: '/ventas' },
-    { title: 'Reportes', icon: <FileText className="w-4 h-4" />, path: '/reportes' },
-    { title: 'Estadísticas', icon: <BarChart4 className="w-4 h-4" />, path: '/estadisticas' }
+    { title: 'Analísis', icon: <BarChart4 className="w-4 h-4" />, path: '/analisis' }
   ];
 
   // For dropdown menus and mobile navigation
@@ -186,10 +211,7 @@ export default function Header() {
               </div>
               
               {/* Notifications */}
-              <button className="flex items-center justify-center w-10 h-10 rounded-full text-slate-600 hover:bg-slate-100 transition-colors relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full"></span>
-              </button>
+              <HeaderNotificationsIntegration />
               
               {/* Profile */}
               <div className="relative ml-1">
