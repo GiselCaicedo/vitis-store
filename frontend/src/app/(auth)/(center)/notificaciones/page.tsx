@@ -13,11 +13,17 @@ import {
     User,
     Filter,
     ChevronRight,
-    MoreHorizontal,
-    Calendar,
     Trash2,
-    CheckSquare
+    CheckSquare,
+    Loader2
 } from 'lucide-react';
+import {
+    getAllNotifications,
+    getPendingNotifications,
+    resolveNotification,
+    ignoreNotification
+} from '@src/service/conexion';
+import { toast } from 'react-hot-toast';
 
 export default function NotificationsPage() {
     const [notifications, setNotifications] = useState([]);
@@ -26,37 +32,89 @@ export default function NotificationsPage() {
     const [selectedItems, setSelectedItems] = useState([]);
     const [sortBy, setSortBy] = useState('date-desc');
     const [dateFilter, setDateFilter] = useState('all');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    // Cargar notificaciones (simulación)
+    // Cargar notificaciones al inicio o cuando cambian los filtros
     useEffect(() => {
-        // En un caso real, aquí harías una llamada API para obtener las notificaciones
-        setNotifications(getSampleNotifications());
-    }, []);
+        loadNotifications();
+    }, [selectedTab]);
 
-    // Función para marcar notificaciones como leídas
-    const markAsRead = (ids) => {
-        setNotifications(
-            notifications.map((notif) =>
-                ids.includes(notif.id) ? { ...notif, read: true } : notif
-            )
-        );
-        setSelectedItems([]);
+    // Función para cargar notificaciones desde la API
+    const loadNotifications = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            let data;
+            if (selectedTab === 'all') {
+                data = await getAllNotifications();
+            } else if (selectedTab === 'pending') {
+                data = await getPendingNotifications();
+            } else {
+                // Si se selecciona una pestaña específica (por tipo), cargamos todas y filtramos en el cliente
+                data = await getAllNotifications();
+            }
+
+            setNotifications(data);
+        } catch (err) {
+            console.error('Error al cargar notificaciones:', err);
+            setError('No se pudieron cargar las notificaciones. Intente nuevamente.');
+            toast.error('Error al cargar notificaciones');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Función para eliminar notificaciones
-    const deleteNotifications = (ids) => {
-        setNotifications(
-            notifications.filter((notif) => !ids.includes(notif.id))
-        );
-        setSelectedItems([]);
+    // Función para marcar notificaciones como leídas (resueltas)
+    const markAsRead = async (ids) => {
+        try {
+            // Para cada ID, llamamos a la API para marcar como resuelta
+            await Promise.all(ids.map(id => resolveNotification(id)));
+
+            // Actualizar el estado local
+            setNotifications(
+                notifications.map((notif) =>
+                    ids.includes(notif.id) ? { ...notif, read: true, estado: 'Resuelto' } : notif
+                )
+            );
+
+            setSelectedItems([]);
+            toast.success(`${ids.length} notificación(es) marcada(s) como resuelta(s)`);
+        } catch (err) {
+            console.error('Error al marcar notificaciones como resueltas:', err);
+            toast.error('Error al marcar notificaciones como resueltas');
+        }
     };
+
+    // Función para ignorar notificaciones
+    const dismissNotifications = async (ids) => {
+        try {
+            // Para cada ID, llamamos a la API para marcar como ignorada
+            await Promise.all(ids.map(id => ignoreNotification(id)));
+
+            // Actualizar el estado local o volver a cargar las notificaciones
+            setNotifications(
+                notifications.map((notif) =>
+                    ids.includes(notif.id) ? { ...notif, read: true, estado: 'Ignorado' } : notif
+                )
+            );
+
+            setSelectedItems([]);
+            toast.success(`${ids.length} notificación(es) ignorada(s)`);
+        } catch (err) {
+            console.error('Error al ignorar notificaciones:', err);
+            toast.error('Error al ignorar notificaciones');
+        }
+    };
+
 
     // Función para filtrar notificaciones por tipo
     const getFilteredNotifications = () => {
         let filtered = [...notifications];
 
-        // Filtro por tipo/tab
-        if (selectedTab !== 'all') {
+        // Filtro por tipo/tab (si no es 'all')
+        if (selectedTab !== 'all' && selectedTab !== 'pending') {
             filtered = filtered.filter(notif => notif.type === selectedTab);
         }
 
@@ -191,7 +249,7 @@ export default function NotificationsPage() {
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-slate-800 mb-1">Notificaciones</h1>
                 <p className="text-sm text-slate-500">
-                    Gestiona y revisa todas tus notificaciones
+                    Gestiona y revisa todas tus notificaciones y alertas de stock
                 </p>
             </div>
 
@@ -201,8 +259,8 @@ export default function NotificationsPage() {
                     <button
                         onClick={() => setSelectedTab('all')}
                         className={`inline-flex items-center px-4 py-3 border-b-2 font-medium text-sm ${selectedTab === 'all'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                             }`}
                     >
                         <Bell className="w-4 h-4 mr-2" />
@@ -215,10 +273,26 @@ export default function NotificationsPage() {
                     </button>
 
                     <button
+                        onClick={() => setSelectedTab('pending')}
+                        className={`inline-flex items-center px-4 py-3 border-b-2 font-medium text-sm ${selectedTab === 'pending'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            }`}
+                    >
+                        <Bell className="w-4 h-4 mr-2" />
+                        Pendientes
+                        {getUnreadCount() > 0 && (
+                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                {getUnreadCount()}
+                            </span>
+                        )}
+                    </button>
+
+                    <button
                         onClick={() => setSelectedTab('alert')}
                         className={`inline-flex items-center px-4 py-3 border-b-2 font-medium text-sm ${selectedTab === 'alert'
-                                ? 'border-amber-500 text-amber-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            ? 'border-amber-500 text-amber-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                             }`}
                     >
                         <AlertTriangle className="w-4 h-4 mr-2" />
@@ -233,8 +307,8 @@ export default function NotificationsPage() {
                     <button
                         onClick={() => setSelectedTab('inventory')}
                         className={`inline-flex items-center px-4 py-3 border-b-2 font-medium text-sm ${selectedTab === 'inventory'
-                                ? 'border-blue-500 text-blue-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                             }`}
                     >
                         <Archive className="w-4 h-4 mr-2" />
@@ -249,34 +323,12 @@ export default function NotificationsPage() {
                     <button
                         onClick={() => setSelectedTab('product')}
                         className={`inline-flex items-center px-4 py-3 border-b-2 font-medium text-sm ${selectedTab === 'product'
-                                ? 'border-indigo-500 text-indigo-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                            ? 'border-indigo-500 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                             }`}
                     >
                         <Package className="w-4 h-4 mr-2" />
                         Productos
-                    </button>
-
-                    <button
-                        onClick={() => setSelectedTab('sale')}
-                        className={`inline-flex items-center px-4 py-3 border-b-2 font-medium text-sm ${selectedTab === 'sale'
-                                ? 'border-green-500 text-green-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                            }`}
-                    >
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        Ventas
-                    </button>
-
-                    <button
-                        onClick={() => setSelectedTab('system')}
-                        className={`inline-flex items-center px-4 py-3 border-b-2 font-medium text-sm ${selectedTab === 'system'
-                                ? 'border-slate-500 text-slate-600'
-                                : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                            }`}
-                    >
-                        <Settings className="w-4 h-4 mr-2" />
-                        Sistema
                     </button>
                 </div>
             </div>
@@ -292,25 +344,41 @@ export default function NotificationsPage() {
                                     className="inline-flex items-center mr-2 px-3 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50"
                                 >
                                     <CheckSquare className="w-4 h-4 mr-2" />
-                                    Marcar como leídas
+                                    Marcar como resueltas
                                 </button>
                                 <button
-                                    onClick={() => deleteNotifications(selectedItems)}
+                                    onClick={() => dismissNotifications(selectedItems)}
                                     className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
                                 >
                                     <Trash2 className="w-4 h-4 mr-2" />
-                                    Eliminar
+                                    Ignorar
                                 </button>
                             </>
                         ) : (
                             <>
                                 <button
-                                    onClick={() => markAsRead(notifications.filter(n => !n.read).map(n => n.id))}
+                                    onClick={() => {
+                                        const pendingIds = notifications
+                                            .filter(n => !n.read && n.estado === 'Pendiente')
+                                            .map(n => n.id);
+                                        if (pendingIds.length > 0) {
+                                            markAsRead(pendingIds);
+                                        } else {
+                                            toast.info('No hay notificaciones pendientes');
+                                        }
+                                    }}
                                     className="inline-flex items-center mr-2 px-3 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50"
                                     disabled={getUnreadCount() === 0}
                                 >
                                     <CheckSquare className="w-4 h-4 mr-2" />
-                                    Marcar todas como leídas
+                                    Resolver todas las pendientes
+                                </button>
+                                <button
+                                    onClick={loadNotifications}
+                                    className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50"
+                                >
+                                    {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Bell className="w-4 h-4 mr-2" />}
+                                    Actualizar
                                 </button>
                             </>
                         )}
@@ -329,7 +397,7 @@ export default function NotificationsPage() {
                             {isFilterOpen && (
                                 <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
                                     <div className="py-1 border-b border-slate-200">
-                                        <div className="px-3 py-2 text-xs font-medium text-slate -500">Fecha</div>
+                                        <div className="px-3 py-2 text-xs font-medium text-slate-500">Fecha</div>
                                     </div>
                                     <div className="py-1">
                                         <button
@@ -398,297 +466,200 @@ export default function NotificationsPage() {
                     </div>
                 </div>
             </div>
+            {/* Estado de carga o error */}
+            {loading && (
+                <div className="bg-white border border-slate-200 rounded-lg shadow-sm p-8 text-center">
+                    <Loader2 className="h-8 w-8 mx-auto text-blue-500 animate-spin mb-4" />
+                    <p className="text-slate-600">Cargando notificaciones...</p>
+                </div>
+            )}
+
+            {error && !loading && (
+                <div className="bg-white border border-red-200 rounded-lg shadow-sm p-8 text-center">
+                    <AlertTriangle className="h-8 w-8 mx-auto text-red-500 mb-4" />
+                    <p className="text-red-600 mb-2">{error}</p>
+                    <button
+                        onClick={loadNotifications}
+                        className="mt-2 px-4 py-2 bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors"
+                    >
+                        Reintentar
+                    </button>
+                </div>
+            )}
 
             {/* Lista de Notificaciones */}
-            <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-                {filteredNotifications.length === 0 ? (
-                    <div className="p-8 text-center">
-                        <div className="mx-auto w-16 h-16 flex items-center justify-center rounded-full bg-slate-100 mb-4">
-                            <Bell className="w-8 h-8 text-slate-400" />
+            {!loading && !error && (
+                <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+                    {filteredNotifications.length === 0 ? (
+                        <div className="p-8 text-center">
+                            <div className="mx-auto w-16 h-16 flex items-center justify-center rounded-full bg-slate-100 mb-4">
+                                <Bell className="w-8 h-8 text-slate-400" />
+                            </div>
+                            <h3 className="text-lg font-medium text-slate-900 mb-1">No hay notificaciones</h3>
+                            <p className="text-slate-500 text-sm">
+                                No se encontraron notificaciones con los filtros seleccionados
+                            </p>
                         </div>
-                        <h3 className="text-lg font-medium text-slate-900 mb-1">No hay notificaciones</h3>
-                        <p className="text-slate-500 text-sm">
-                            No se encontraron notificaciones con los filtros seleccionados
-                        </p>
-                    </div>
-                ) : (
-                    <div>
-                        <table className="min-w-full divide-y divide-slate-200">
-                            <thead className="bg-slate-50">
-                                <tr>
-                                    <th scope="col" className="relative w-12 px-6 sm:w-16 sm:px-8">
-                                        <input
-                                            type="checkbox"
-                                            className="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 sm:left-6"
-                                            checked={selectedItems.length === filteredNotifications.length}
-                                            onChange={toggleSelectAll}
-                                        />
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        className="py-3 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-                                    >
-                                        Notificación
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
-                                    >
-                                        Fecha
-                                    </th>
-                                    <th
-                                        scope="col"
-                                        className="relative py-3 pl-3 pr-4 sm:pr-6"
-                                    >
-                                        <span className="sr-only">Acciones</span>
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-200 bg-white">
-                                {filteredNotifications.map((notification) => (
-                                    <tr
-                                        key={notification.id}
-                                        className={`${!notification.read ? 'bg-blue-50/40' : ''
-                                            } hover:bg-slate-50 transition-colors`}
-                                    >
-                                        <td className="relative w-12 px-6 sm:w-16 sm:px-8">
+                    ) : (
+                        <div>
+                            <table className="min-w-full divide-y divide-slate-200">
+                                <thead className="bg-slate-50">
+                                    <tr>
+                                        <th scope="col" className="relative w-12 px-6 sm:w-16 sm:px-8">
                                             <input
                                                 type="checkbox"
                                                 className="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 sm:left-6"
-                                                checked={selectedItems.includes(notification.id)}
-                                                onChange={() => toggleSelectItem(notification.id)}
+                                                checked={selectedItems.length === filteredNotifications.length && filteredNotifications.length > 0}
+                                                onChange={toggleSelectAll}
                                             />
-                                        </td>
-                                        <td className="py-4 pl-4 pr-3 text-sm">
-                                            <div className="flex items-start">
-                                                <div className="mr-3 flex-shrink-0 mt-0.5">
-                                                    {getNotificationIcon(notification.type)}
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center mb-1">
-                                                        <span className="text-xs font-medium text-slate-500 mr-2">
-                                                            {notification.category}
-                                                        </span>
-                                                        {!notification.read && (
-                                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                Nueva
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="py-3 pl-4 pr-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
+                                        >
+                                            Notificación
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
+                                        >
+                                            Fecha
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-500"
+                                        >
+                                            Estado
+                                        </th>
+                                        <th
+                                            scope="col"
+                                            className="relative py-3 pl-3 pr-4 sm:pr-6"
+                                        >
+                                            <span className="sr-only">Acciones</span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-200 bg-white">
+                                    {filteredNotifications.map((notification) => (
+                                        <tr
+                                            key={notification.id}
+                                            className={`${notification.estado === 'Pendiente' ? 'bg-blue-50/40' : ''
+                                                } hover:bg-slate-50 transition-colors`}
+                                        >
+                                            <td className="relative w-12 px-6 sm:w-16 sm:px-8">
+                                                <input
+                                                    type="checkbox"
+                                                    className="absolute left-4 top-1/2 -mt-2 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 sm:left-6"
+                                                    checked={selectedItems.includes(notification.id)}
+                                                    onChange={() => toggleSelectItem(notification.id)}
+                                                />
+                                            </td>
+                                            <td className="py-4 pl-4 pr-3 text-sm">
+                                                <div className="flex items-start">
+                                                    <div className="mr-3 flex-shrink-0 mt-0.5">
+                                                        {getNotificationIcon(notification.type)}
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center mb-1">
+                                                            <span className="text-xs font-medium text-slate-500 mr-2">
+                                                                {notification.category}
                                                             </span>
+                                                            {notification.estado === 'Pendiente' && (
+                                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                    Pendiente
+                                                                </span>
+                                                            )}
+                                                            {notification.prioridad === 'Alta' && (
+                                                                <span className="ml-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                    Prioridad alta
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="font-medium text-slate-900 mb-1">
+                                                            {notification.message}
+                                                        </p>
+                                                        {notification.stockActual !== undefined && (
+                                                            <div className="mt-1 mb-2 text-xs text-slate-500">
+                                                                Stock actual: <span className="font-semibold">{notification.stockActual}</span> /
+                                                                Mínimo: <span className="font-semibold">{notification.stockMinimo}</span>
+                                                            </div>
+                                                        )}
+                                                        {notification.action && (
+                                                            <a
+                                                                href={notification.action.url}
+                                                                className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
+                                                            >
+                                                                {notification.action.text}
+                                                                <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                                                            </a>
                                                         )}
                                                     </div>
-                                                    <p className="font-medium text-slate-900 mb-1">
-                                                        {notification.message}
-                                                    </p>
-                                                    {notification.action && (
-                                                        <a
-                                                            href={notification.action.url}
-                                                            className="inline-flex items-center text-xs font-medium text-blue-600 hover:text-blue-800"
-                                                        >
-                                                            {notification.action.text}
-                                                            <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-                                                        </a>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-4 text-sm text-slate-500 whitespace-nowrap">
+                                                {getFormattedDate(notification.time)}
+                                            </td>
+                                            <td className="px-3 py-4 text-sm whitespace-nowrap">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${notification.estado === 'Pendiente'
+                                                        ? 'bg-blue-100 text-blue-800'
+                                                        : notification.estado === 'Resuelto'
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : 'bg-slate-100 text-slate-800'
+                                                    }`}>
+                                                    {notification.estado}
+                                                </span>
+                                            </td>
+                                            <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
+                                                <div className="flex justify-end">
+                                                    {notification.estado === 'Pendiente' && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => markAsRead([notification.id])}
+                                                                className="text-blue-600 hover:text-blue-900 mr-3"
+                                                            >
+                                                                Resolver
+                                                            </button>
+                                                            <button
+                                                                onClick={() => dismissNotifications([notification.id])}
+                                                                className="text-red-600 hover:text-red-900"
+                                                            >
+                                                                Ignorar
+                                                            </button>
+                                                        </>
                                                     )}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-3 py-4 text-sm text-slate-500 whitespace-nowrap">
-                                            {getFormattedDate(notification.time)}
-                                        </td>
-                                        <td className="py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                                            <div className="flex justify-end">
-                                                {!notification.read && (
-                                                    <button
-                                                        onClick={() => markAsRead([notification.id])}
-                                                        className="text-blue-600 hover:text-blue-900 mr-3"
-                                                    >
-                                                        Marcar como leída
-                                                    </button>
-                                                )}
-                                                <button
-                                                    onClick={() => deleteNotifications([notification.id])}
-                                                    className="text-red-600 hover:text-red-900"
-                                                >
-                                                    Eliminar
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
 
-                        {/* Paginación */}
-                        {filteredNotifications.length > 0 && (
+                            {/* Resumen de notificaciones */}
                             <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-slate-200 sm:px-6">
-                                <div className="flex-1 flex justify-between sm:hidden">
-                                    <button className="relative inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50">
-                                        Anterior
-                                    </button>
-                                    <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50">
-                                        Siguiente
-                                    </button>
+                                <div className="text-sm text-slate-700">
+                                    <p>
+                                        Total: <span className="font-medium">{filteredNotifications.length}</span> notificaciones
+                                        {' · '}
+                                        Pendientes: <span className="font-medium">{filteredNotifications.filter(n => n.estado === 'Pendiente').length}</span>
+                                        {' · '}
+                                        Resueltas: <span className="font-medium">{filteredNotifications.filter(n => n.estado === 'Resuelto').length}</span>
+                                        {' · '}
+                                        Ignoradas: <span className="font-medium">{filteredNotifications.filter(n => n.estado === 'Ignorado').length}</span>
+                                    </p>
                                 </div>
-                                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                    <div>
-                                        <p className="text-sm text-slate-700">
-                                            Mostrando <span className="font-medium">1</span> a{' '}
-                                            <span className="font-medium">{filteredNotifications.length}</span> de{' '}
-                                            <span className="font-medium">{filteredNotifications.length}</span> resultados
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                            <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50">
-                                                <span className="sr-only">Anterior</span>
-                                                {/* SVG para anterior */}
-                                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                                                </svg>
-                                            </button>
-                                            <button className="relative inline-flex items-center px-4 py-2 border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50">
-                                                1
-                                            </button>
-                                            <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-slate-300 bg-white text-sm font-medium text-slate-500 hover:bg-slate-50">
-                                                <span className="sr-only">Siguiente</span>
-                                                {/* SVG para siguiente */}
-                                                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                                                </svg>
-                                            </button>
-                                        </nav>
-                                    </div>
+                                <div>
+                                    <button
+                                        onClick={loadNotifications}
+                                        className="inline-flex items-center px-4 py-2 border border-slate-300 text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50"
+                                    >
+                                        Actualizar
+                                    </button>
                                 </div>
                             </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
-}
-
-// Función para obtener notificaciones de ejemplo
-function getSampleNotifications() {
-    const now = new Date();
-    return [
-        {
-            id: 1,
-            type: 'alert',
-            category: 'Alerta de Stock',
-            message: 'El producto "Smartphone Samsung Galaxy A52" está por debajo del stock mínimo (2 unidades)',
-            time: new Date(now - 5 * 60 * 1000).toISOString(), // 5 minutos atrás
-            read: false,
-            action: {
-                text: 'Ver producto',
-                url: '/productos/123'
-            }
-        },
-        {
-            id: 2,
-            type: 'inventory',
-            category: 'Entrada de Inventario',
-            message: 'Se registró una nueva entrada de 25 unidades de "Audífonos Sony WH-1000XM4"',
-            time: new Date(now - 2 * 60 * 60 * 1000).toISOString(), // 2 horas atrás
-            read: false,
-            action: {
-                text: 'Ver movimiento',
-                url: '/inventario/entradas/456'
-            }
-        },
-        {
-            id: 3,
-            type: 'sale',
-            category: 'Venta Completada',
-            message: 'Venta #1089 por $2,450.00 completada exitosamente',
-            time: new Date(now - 5 * 60 * 60 * 1000).toISOString(), // 5 horas atrás
-            read: true,
-            action: {
-                text: 'Ver detalles',
-                url: '/ventas/1089'
-            }
-        },
-        {
-            id: 4,
-            type: 'product',
-            category: 'Producto Actualizado',
-            message: 'El precio del producto "Monitor LG 27GL850" fue actualizado a $349.99',
-            time: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día atrás
-            read: true,
-            action: {
-                text: 'Ver producto',
-                url: '/productos/789'
-            }
-        },
-        {
-            id: 5,
-            type: 'alert',
-            category: 'Producto Sin Movimiento',
-            message: 'El producto "Tablet Lenovo Tab P11" no ha tenido movimiento en los últimos 30 días',
-            time: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 días atrás
-            read: false,
-            action: {
-                text: 'Ver producto',
-                url: '/productos/321'
-            }
-        },
-        {
-            id: 6,
-            type: 'system',
-            category: 'Actualización del Sistema',
-            message: 'El sistema ha sido actualizado a la versión 2.3.0',
-            time: new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 días atrás
-            read: true,
-            action: {
-                text: 'Ver cambios',
-                url: '/configuracion/actualizaciones'
-            }
-        },
-        {
-            id: 7,
-            type: 'user',
-            category: 'Nuevo Usuario',
-            message: 'El usuario "Carlos Mendoza" se ha registrado en el sistema',
-            time: new Date(now - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 días atrás
-            read: true,
-            action: {
-                text: 'Ver perfil',
-                url: '/usuarios/456'
-            }
-        },
-        {
-            id: 8,
-            type: 'inventory',
-            category: 'Ajuste de Inventario',
-            message: 'Se realizó un ajuste de inventario para 5 productos',
-            time: new Date(now - 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 días atrás
-            read: true,
-            action: {
-                text: 'Ver ajuste',
-                url: '/inventario/ajustes/123'
-            }
-        },
-        {
-            id: 9,
-            type: 'sale',
-            category: 'Venta Cancelada',
-            message: 'La venta #1056 por $899.99 fue cancelada',
-            time: new Date(now - 6 * 24 * 60 * 60 * 1000).toISOString(), // 6 días atrás
-            read: true,
-            action: {
-                text: 'Ver detalles',
-                url: '/ventas/1056'
-            }
-        },
-        {
-            id: 10,
-            type: 'success',
-            category: 'Respaldo Completo',
-            message: 'El respaldo automático de la base de datos se completó exitosamente',
-            time: new Date(now - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 día atrás
-            read: true,
-            action: {
-                text: 'Ver registros',
-                url: '/configuracion/respaldos'
-            }
-        }
-    ];
 }

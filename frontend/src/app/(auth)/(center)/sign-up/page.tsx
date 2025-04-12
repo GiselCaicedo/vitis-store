@@ -1,62 +1,94 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-
-import { useRouter } from 'next/navigation'; 
+import { useRouter } from 'next/navigation';
 import { getCargos, signUp } from '@src/service/conexion';
 import Link from 'next/link';
 import { AutoComplete } from 'primereact/autocomplete';
 
-const SignInPage = () => {
+// Definimos una interfaz para los cargos
+interface Cargo {
+  role_name: string;
+  // Puedes añadir más propiedades si es necesario
+}
+
+const SignUpPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [nombre, setNombre] = useState('');  
-  const [cargo, setCargo] = useState('');  
+  const [nombre, setNombre] = useState('');
+  const [cargo, setCargo] = useState('');
   const [error, setError] = useState('');
-  const [cargosDisponibles, setCargosDisponibles] = useState<string[]>([]);  
-  const [filteredCargos, setFilteredCargos] = useState<string[]>([]);  
-  const router = useRouter(); 
+  const [isLoading, setIsLoading] = useState(false);
+  const [cargosDisponibles, setCargosDisponibles] = useState<string[]>([]);
+  const [filteredCargos, setFilteredCargos] = useState<string[]>([]);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-
-        const cargos = await getCargos();  
-        const nombresCargos = cargos.map((cargo: { role_name: string }) => cargo.role_name);  
-        setCargosDisponibles(nombresCargos);  
-        console.log(nombresCargos);  
+        const cargos = await getCargos();
+        const nombresCargos = cargos.map((cargo: Cargo) => cargo.role_name);
+        setCargosDisponibles(nombresCargos);
       } catch (err) {
         console.error('Error al obtener los cargos:', err);
+        setError('No se pudieron cargar los cargos. Por favor, intenta más tarde.');
       }
     };
 
-    fetchData();  
-  }, []);  
+    fetchData();
+  }, []);
 
-  const searchCargo = (event: any) => {
+  const searchCargo = (event: { query: string }) => {
     setFilteredCargos(
-      cargosDisponibles.filter(cargo => {
-        if (typeof cargo === 'string') {
-
-          return cargo.toLowerCase().includes(event.query.toLowerCase());
-        }
-        return false;  
-      })
+      cargosDisponibles.filter(cargo => 
+        cargo.toLowerCase().includes(event.query.toLowerCase())
+      )
     );
   };
-  
+
+  const validateForm = (): boolean => {
+    // Validación básica
+    if (!email || !email.includes('@')) {
+      setError('Por favor, ingresa un correo electrónico válido');
+      return false;
+    }
+    
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return false;
+    }
+    
+    if (!nombre) {
+      setError('Por favor, ingresa tu nombre');
+      return false;
+    }
+    
+    if (!cargo) {
+      setError('Por favor, selecciona un cargo');
+      return false;
+    }
+    
+    return true;
+  };
   
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    setIsLoading(true);
+    
     try {
       await signUp({ email, password, nombre, cargo });
-
-
-      router.push('/dashboard'); 
+      router.push('/dashboard');
     } catch (err) {
-      setError('Error en el registro. Inténtalo de nuevo.'); 
+      console.error('Error de registro:', err);
+      setError('Error en el registro. Inténtalo de nuevo.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -69,7 +101,11 @@ const SignInPage = () => {
           <p className="text-md mt-2 text-gray-600 text-center">Ingresa tus datos para crear una cuenta</p>
 
           <form className="flex flex-col gap-6 mt-6" onSubmit={handleSignUp}>
-            {error && <p className="text-red-500">{error}</p>}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl">
+                {error}
+              </div>
+            )}
             
             {/* Correo */}
             <input
@@ -78,7 +114,6 @@ const SignInPage = () => {
               name="email"
               placeholder="Correo Electrónico"
               value={email}
-
               onChange={(e) => setEmail(e.target.value)}
               required
             />
@@ -93,9 +128,11 @@ const SignInPage = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                minLength={6}
               />
             </div>
 
+            {/* Nombre */}
             <input
               className="p-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-600"
               type="text"
@@ -111,9 +148,9 @@ const SignInPage = () => {
               value={cargo}
               suggestions={filteredCargos}
               completeMethod={searchCargo}
-              dropdown  // Habilita el dropdown para seleccionar directamente
+              dropdown
               placeholder="Selecciona tu Cargo"
-              onChange={(e) => setCargo(e.value)}  // Establece el valor del cargo seleccionado
+              onChange={(e) => setCargo(e.value)}
               className="p-4 rounded-xl border border-gray-300 w-full focus:outline-none focus:ring-2 focus:ring-blue-600"
               required
             />
@@ -121,9 +158,10 @@ const SignInPage = () => {
             {/* Botón de registro */}
             <button
               type="submit"
-              className="bg-[#0a74da] text-white rounded-xl py-3 hover:scale-105 transition-transform duration-300"
+              className="bg-[#0a74da] text-white rounded-xl py-3 hover:scale-105 transition-transform duration-300 disabled:opacity-70 disabled:cursor-not-allowed"
+              disabled={isLoading}
             >
-              Registrarse
+              {isLoading ? 'Procesando...' : 'Registrarse'}
             </button>
           </form>
 
@@ -140,4 +178,4 @@ const SignInPage = () => {
   );
 };
 
-export default SignInPage;
+export default SignUpPage;

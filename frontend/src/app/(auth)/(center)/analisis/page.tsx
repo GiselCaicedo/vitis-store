@@ -1,5 +1,5 @@
 'use client'
-
+import * as XLSX from 'xlsx';
 import React, { useState, useEffect } from 'react';
 import {
   BarChart2,
@@ -20,22 +20,58 @@ import {
   Loader
 } from 'lucide-react';
 import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, Pie, Cell, LineChart as RechartsLineChart, Line
+} from 'recharts';
+import {
   getAnalysisDashboardData,
   getProductsAnalysis,
   searchSalesHistory,
   exportData
 } from '@src/service/conexion';
 
+// Professional color palette
+const COLORS = {
+  primary: '#4B5563',      // Dark gray
+  secondary: '#9CA3AF',    // Medium gray
+  accent1: '#3B82F6',      // Blue
+  accent2: '#EC4899',      // Pink
+  accent3: '#10B981',      // Green
+  accent4: '#F59E0B',      // Amber
+  accent5: '#6366F1',      // Indigo
+  background: '#F3F4F6',   // Light gray
+  success: '#10B981',      // Green
+  danger: '#EF4444',       // Red
+  warning: '#F59E0B',      // Amber
+  info: '#3B82F6'          // Blue
+};
+
+
+
+// Professional chart colors
+const CHART_COLORS = [
+  COLORS.accent1,
+  COLORS.accent2,
+  COLORS.accent3,
+  COLORS.accent4,
+  COLORS.accent5,
+  '#8B5CF6',   // Purple
+  '#14B8A6',   // Teal
+  '#F97316',   // Orange
+  '#06B6D4',   // Cyan
+  '#8B5CF6'    // Purple
+];
+
 const AnalysisModule = () => {
-  // Estados para los datos
+  // States for data
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
-  const [timeRange, setTimeRange] = useState('month');
+  const [timeRange, setTimeRange] = useState('custom');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Estados para almacenar datos dinámicos
+  // States for dynamic data
   const [salesData, setSalesData] = useState([]);
   const [topProductsData, setTopProductsData] = useState([]);
   const [inventoryMovements, setInventoryMovements] = useState([]);
@@ -44,19 +80,22 @@ const AnalysisModule = () => {
   const [currentPeriodData, setCurrentPeriodData] = useState(null);
   const [productsAnalysis, setProductsAnalysis] = useState({ products: [], categories: [] });
 
-  // Estados para filtros
-  const [dateRange, setDateRange] = useState({ startDate: '', endDate: '' });
+  // Filter states
+  const [dateRange, setDateRange] = useState({
+    startDate: getDefaultStartDate(),
+    endDate: new Date().toISOString().split('T')[0]
+  });
   const [selectedCategory, setSelectedCategory] = useState('');
   const [minAmount, setMinAmount] = useState('');
   const [compareLastPeriod, setCompareLastPeriod] = useState(false);
 
-  // Estado para el dropdown de rango de tiempo
+  // Time range dropdown state
   const [showTimeRangeDropdown, setShowTimeRangeDropdown] = useState(false);
 
-
-  // Cargar datos del dashboard según el tab activo
+  // Load dashboard data based on active tab
   useEffect(() => {
     const loadData = async () => {
+      console.log("Starting data load", { activeTab, timeRange, dateRange });
       setIsLoading(true);
       setError(null);
 
@@ -67,7 +106,16 @@ const AnalysisModule = () => {
             ...dateRange.startDate && dateRange.endDate ? dateRange : {}
           };
 
+          console.log("Requesting dashboard data", params);
+
+          // MOCK DATA - REPLACE WITH ACTUAL API CALL
+          
+          // Uncomment this line when connecting to real API
           const data = await getAnalysisDashboardData(params);
+
+          // Comment this line when connecting to real API
+
+          console.log("Data received", data);
 
           setSalesData(data.salesData || []);
           setTopProductsData(data.topProductsData || []);
@@ -87,7 +135,7 @@ const AnalysisModule = () => {
         } else if (activeTab === 'history') {
           await loadSalesHistory();
         } else if (activeTab === 'sales') {
-          // También cargamos datos para la pestaña de ventas
+          // Also load data for sales tab
           const params = {
             timeRange,
             ...dateRange.startDate && dateRange.endDate ? dateRange : {}
@@ -98,17 +146,18 @@ const AnalysisModule = () => {
           setCurrentPeriodData(data.currentPeriodData || null);
         }
       } catch (err) {
-        console.error('Error al cargar datos:', err);
-        setError('Ocurrió un error al cargar los datos. Por favor, intenta de nuevo.');
+        console.error('Error loading data:', err);
+        setError('An error occurred while loading data. Please try again.');
       } finally {
         setIsLoading(false);
+        console.log("Data loading finished", { activeTab });
       }
     };
 
     loadData();
   }, [activeTab, timeRange, dateRange.startDate, dateRange.endDate, selectedCategory]);
 
-  // Función para cargar historial de ventas con búsqueda
+  // Function to load sales history with search
   const loadSalesHistory = async () => {
     try {
       const params = {
@@ -120,12 +169,12 @@ const AnalysisModule = () => {
       const data = await searchSalesHistory(params);
       setSalesHistory(data || []);
     } catch (err) {
-      console.error('Error al cargar historial de ventas:', err);
-      setError('Ocurrió un error al buscar en el historial. Por favor, intenta de nuevo.');
+      console.error('Error loading sales history:', err);
+      setError('An error occurred while searching history. Please try again.');
     }
   };
 
-  // Manejar cambio en el término de búsqueda
+  // Handle search term change
   useEffect(() => {
     if (activeTab === 'history') {
       const delayDebounce = setTimeout(() => {
@@ -136,58 +185,236 @@ const AnalysisModule = () => {
     }
   }, [searchTerm, activeTab]);
 
-  // Manejar la exportación de datos
+  // Handle data export
   const handleExport = async () => {
     try {
-      // Definir parámetros para la exportación
-      const params = {
-        startDate: dateRange.startDate || getDefaultStartDate(),
-        endDate: dateRange.endDate || new Date().toISOString().split('T')[0],
-        format: 'csv'
-      };
+      setIsLoading(true);
 
-      await exportData(params);
+      // Define what data to export based on active tab
+      let dataToExport = [];
+      let filename = '';
+      let sheetNames = [];
+
+      if (activeTab === 'overview') {
+        // Export general summary data
+        filename = 'resumen_analisis';
+
+        // Monthly sales data
+        const salesSheetData = [['Mes', 'Ventas (€)', 'Cantidad']];
+        salesData.forEach(month => {
+          salesSheetData.push([month.month, month.amount, month.count]);
+        });
+
+        // Top-selling products data
+        const productsSheetData = [['Producto', 'SKU', 'Categoría', 'Ventas', 'Ingresos (€)']];
+        topProductsData.forEach(product => {
+          productsSheetData.push([
+            product.name,
+            product.sku,
+            product.category,
+            product.sales,
+            product.revenue
+          ]);
+        });
+
+        // Sales by category data
+        const categoriesSheetData = [['Categoría', 'Porcentaje (%)', 'Ingresos (€)']];
+        salesByCategory.forEach(category => {
+          categoriesSheetData.push([
+            category.category,
+            category.percentage,
+            category.revenue
+          ]);
+        });
+
+        // Add all data to export
+        dataToExport = [
+          { name: 'Ventas Mensuales', data: salesSheetData },
+          { name: 'Productos Top', data: productsSheetData },
+          { name: 'Categorías', data: categoriesSheetData }
+        ];
+
+      } else if (activeTab === 'sales') {
+        // Export sales data
+        filename = 'analisis_ventas';
+
+        // Sales data
+        const salesSheetData = [['Mes', 'Ventas (€)', 'Cantidad']];
+        salesData.forEach(month => {
+          salesSheetData.push([month.month, month.amount, month.count]);
+        });
+
+        // Period comparison
+        const comparisonData = [
+          ['Métrica', 'Periodo Actual', 'Periodo Anterior', 'Variación (%)'],
+          ['Ventas totales',
+            currentPeriodData?.current.totalSales || 0,
+            currentPeriodData?.previous.totalSales || 0,
+            currentPeriodData?.changes.totalSales || 0
+          ],
+          ['Unidades vendidas',
+            currentPeriodData?.current.orderCount || 0,
+            currentPeriodData?.previous.orderCount || 0,
+            currentPeriodData?.changes.orderCount || 0
+          ],
+          ['Ticket promedio',
+            currentPeriodData?.current.avgTicket || 0,
+            currentPeriodData?.previous.avgTicket || 0,
+            currentPeriodData?.changes.avgTicket || 0
+          ],
+          ['Categorías activas',
+            currentPeriodData?.current.categoryCount || 0,
+            currentPeriodData?.previous.categoryCount || 0,
+            currentPeriodData?.changes.categoryCount || 0
+          ]
+        ];
+
+        dataToExport = [
+          { name: 'Ventas por Mes', data: salesSheetData },
+          { name: 'Comparativa', data: comparisonData }
+        ];
+
+      } else if (activeTab === 'products') {
+        // Export product data
+        filename = 'analisis_productos';
+
+        // Product data
+        const productsSheetData = [['Producto', 'SKU', 'Categoría', 'Ventas', 'Ingresos (€)', 'Stock', 'Tendencia']];
+        productsAnalysis.products.forEach(product => {
+          productsSheetData.push([
+            product.name,
+            product.sku,
+            product.category,
+            product.sales,
+            product.revenue,
+            product.stock || 0,
+            product.trend === 'up' ? 'Crecimiento' : 'Decrecimiento'
+          ]);
+        });
+
+        // Category data
+        const categoriesSheetData = [['Categoría', 'Productos', 'Unidades Vendidas', 'Ingresos (€)', 'Porcentaje (%)']];
+        productsAnalysis.categories.forEach(category => {
+          categoriesSheetData.push([
+            category.category,
+            category.productCount || 0,
+            category.sales || 0,
+            category.revenue || 0,
+            category.percentage || 0
+          ]);
+        });
+
+        dataToExport = [
+          { name: 'Productos', data: productsSheetData },
+          { name: 'Categorías', data: categoriesSheetData }
+        ];
+
+      } else if (activeTab === 'history') {
+        // Export sales history
+        filename = 'historial_ventas';
+
+        // History data
+        const historySheetData = [['Fecha', 'Producto', 'Cantidad', 'Importe (€)', 'Cliente']];
+        salesHistory.forEach(sale => {
+          historySheetData.push([
+            sale.date,
+            sale.product,
+            sale.quantity,
+            sale.amount || 0,
+            sale.customer || 'Cliente anónimo'
+          ]);
+        });
+
+        dataToExport = [
+          { name: 'Historial', data: historySheetData }
+        ];
+      }
+
+      // Create Excel workbook
+      const wb = XLSX.utils.book_new();
+
+      // Add each sheet to the workbook
+      dataToExport.forEach(sheet => {
+        // Convert data to worksheet
+        const ws = XLSX.utils.aoa_to_sheet(sheet.data);
+
+        // Configure automatic column widths based on data length
+        const columnWidths = [];
+        sheet.data.forEach(row => {
+          row.forEach((cell, i) => {
+            const cellValue = cell !== null ? String(cell) : '';
+            columnWidths[i] = Math.max(columnWidths[i] || 10, Math.min(50, cellValue.length + 2));
+          });
+        });
+
+        ws['!cols'] = columnWidths.map(width => ({ wch: width }));
+
+        // Add sheet to workbook
+        XLSX.utils.book_append_sheet(wb, ws, sheet.name);
+      });
+
+      // Add current date to filename
+      const date = new Date().toISOString().split('T')[0];
+      filename = `${filename}_${date}`;
+
+      // Write file and download
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+
+      // Show success message
+      alert(`Data successfully exported to ${filename}.xlsx`);
+
     } catch (err) {
-      console.error('Error al exportar datos:', err);
-      alert('Error al exportar datos. Por favor, intenta de nuevo.');
+      console.error('Error exporting data:', err);
+      alert('Error exporting data. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Obtener fecha de inicio predeterminada (30 días atrás)
-  const getDefaultStartDate = () => {
+  // Get default start date (30 days ago)
+  function getDefaultStartDate() {
     const date = new Date();
     date.setDate(date.getDate() - 30);
     return date.toISOString().split('T')[0];
-  };
+  }
 
-  // Función para aplicar filtros
+  // Function to apply filters
   const applyFilters = () => {
     setShowFilterModal(false);
 
-    // Dependiendo del tab activo, cargamos los datos correspondientes
+    // Depending on active tab, we load corresponding data
     if (activeTab === 'overview') {
-      // La carga se maneja automáticamente en el useEffect
+      // Loading is handled automatically in useEffect
     } else if (activeTab === 'products') {
-      // La carga se maneja automáticamente en el useEffect
+      // Loading is handled automatically in useEffect
     } else if (activeTab === 'history') {
       loadSalesHistory();
     }
   };
 
-  // Función para reiniciar filtros
+  // Function to reset filters
   const resetFilters = () => {
-    setDateRange({ startDate: '', endDate: '' });
+    setDateRange({
+      startDate: getDefaultStartDate(),
+      endDate: new Date().toISOString().split('T')[0]
+    });
     setSelectedCategory('');
     setMinAmount('');
     setCompareLastPeriod(false);
   };
 
-  // Calcular totales
-  const totalSales = salesData.reduce((sum, month) => sum + month.amount, 0);
-  const totalProducts = salesData.reduce((sum, month) => sum + month.count, 0);
+  // Calculate totals
+  const totalSales = salesData.reduce((sum, month) => sum + (month.amount || 0), 0);
+  const totalProducts = salesData.reduce((sum, month) => sum + (month.count || 0), 0);
 
+  // Format date for display
+  const formatDateForDisplay = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES');
+  };
 
-  // Modal para filtros avanzados
+  // Filter modal
   const FilterModal = () => (
     <div className="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
@@ -289,41 +516,124 @@ const AnalysisModule = () => {
     </div>
   );
 
-  // Dropdown para selección de rango de tiempo
-  const TimeRangeDropdown = () => (
-    <div className="absolute top-full left-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+  // Date range display component
+  const DateRangeDisplay = () => {
+    const formattedStartDate = formatDateForDisplay(dateRange.startDate);
+    const formattedEndDate = formatDateForDisplay(dateRange.endDate);
+
+    return (
+      <button
+        onClick={() => setShowFilterModal(true)}
+        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 flex items-center"
+      >
+        <Calendar size={16} className="mr-2" />
+        <span>{formattedStartDate} - {formattedEndDate}</span>
+      </button>
+    );
+  };
+
+  // Dropdown with preset date ranges
+  const DateRangeQuickSelect = () => (
+    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
       <ul className="py-1">
         <li>
           <button
             onClick={() => {
-              setTimeRange('week');
+              const today = new Date();
+              const lastWeek = new Date();
+              lastWeek.setDate(today.getDate() - 7);
+              setDateRange({
+                startDate: lastWeek.toISOString().split('T')[0],
+                endDate: today.toISOString().split('T')[0]
+              });
               setShowTimeRangeDropdown(false);
             }}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
-            Esta semana
+            Últimos 7 días
           </button>
         </li>
         <li>
           <button
             onClick={() => {
-              setTimeRange('month');
+              const today = new Date();
+              const lastMonth = new Date();
+              lastMonth.setDate(today.getDate() - 30);
+              setDateRange({
+                startDate: lastMonth.toISOString().split('T')[0],
+                endDate: today.toISOString().split('T')[0]
+              });
               setShowTimeRangeDropdown(false);
             }}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
-            Este mes
+            Últimos 30 días
           </button>
         </li>
         <li>
           <button
             onClick={() => {
-              setTimeRange('year');
+              const today = new Date();
+              const lastQuarter = new Date();
+              lastQuarter.setDate(today.getDate() - 90);
+              setDateRange({
+                startDate: lastQuarter.toISOString().split('T')[0],
+                endDate: today.toISOString().split('T')[0]
+              });
               setShowTimeRangeDropdown(false);
             }}
             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
           >
-            Este año
+            Últimos 90 días
+          </button>
+        </li>
+        <li>
+          <button
+            onClick={() => {
+              const today = new Date();
+
+              // First day of current month
+              const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+              setDateRange({
+                startDate: firstDayOfMonth.toISOString().split('T')[0],
+                endDate: today.toISOString().split('T')[0]
+              });
+              setShowTimeRangeDropdown(false);
+            }}
+            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            Mes actual
+          </button>
+        </li>
+        <li>
+          <button
+            onClick={() => {
+              const today = new Date();
+
+              // First day of the year
+              const firstDayOfYear = new Date(today.getFullYear(), 0, 1);
+
+              setDateRange({
+                startDate: firstDayOfYear.toISOString().split('T')[0],
+                endDate: today.toISOString().split('T')[0]
+              });
+              setShowTimeRangeDropdown(false);
+            }}
+            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          >
+            Año actual
+          </button>
+        </li>
+        <li>
+          <button
+            onClick={() => {
+              setShowFilterModal(true);
+              setShowTimeRangeDropdown(false);
+            }}
+            className="block w-full text-left px-4 py-2 text-sm font-medium text-blue-600 hover:bg-gray-100"
+          >
+            Rango personalizado...
           </button>
         </li>
       </ul>
@@ -332,7 +642,7 @@ const AnalysisModule = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Cabecera del módulo */}
+      {/* Module header */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-900">Análisis y Reportes</h1>
         <p className="text-sm text-gray-500 mt-1">
@@ -340,7 +650,7 @@ const AnalysisModule = () => {
         </p>
       </div>
 
-      {/* Navegación por tabs */}
+      {/* Tab navigation */}
       <div className="border-b border-gray-200 mb-6">
         <nav className="flex -mb-px">
           <button
@@ -386,7 +696,7 @@ const AnalysisModule = () => {
         </nav>
       </div>
 
-      {/* Barra de acciones */}
+      {/* Action bar
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
         <div className="flex space-x-3">
           <div className="relative">
@@ -394,19 +704,16 @@ const AnalysisModule = () => {
               onClick={() => setShowTimeRangeDropdown(!showTimeRangeDropdown)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 flex items-center"
             >
-              {timeRange === 'week' ? 'Esta semana' : timeRange === 'month' ? 'Este mes' : 'Este año'}
+              <Calendar size={16} className="mr-2" />
+              Período
               <ChevronDown size={16} className="ml-1" />
             </button>
-            {showTimeRangeDropdown && <TimeRangeDropdown />}
+            {showTimeRangeDropdown && <DateRangeQuickSelect />}
           </div>
 
-          <button
-            onClick={() => setShowFilterModal(true)}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 flex items-center"
-          >
-            <Filter size={16} className="mr-1" />
-            Filtros
-          </button>
+          <DateRangeDisplay />
+
+
         </div>
 
         {activeTab === 'history' && (
@@ -431,9 +738,9 @@ const AnalysisModule = () => {
           <Download size={16} className="mr-1" />
           Exportar
         </button>
-      </div>
+      </div> */}
 
-      {/* Estado de carga */}
+      {/* Loading state */}
       {isLoading && (
         <div className="flex justify-center items-center p-12">
           <Loader size={40} className="animate-spin text-blue-500" />
@@ -456,10 +763,10 @@ const AnalysisModule = () => {
       )}
 
 
-      {/* Contenido principal según la tab activa */}
+      {/* Main content based on active tab */}
       {!isLoading && !error && activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* KPIs principales */}
+          {/* Main KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
               <div className="flex items-center justify-between">
@@ -549,7 +856,7 @@ const AnalysisModule = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-500">Movimientos de inventario</p>
                   <p className="text-2xl font-semibold text-gray-900 mt-1">
-                    {inventoryMovements.reduce((sum, m) => sum + m.count, 0)}
+                    {inventoryMovements.reduce((sum, m) => sum + (m.count || 0), 0)}
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
@@ -571,28 +878,43 @@ const AnalysisModule = () => {
             </div>
           </div>
 
-          {/* Gráficos y tablas resumen */}
+          {/* Charts and summary tables */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Gráfico de ventas mensuales */}
+            {/* Monthly sales chart with Recharts */}
             <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Ventas mensuales</h3>
               <div className="h-64 w-full">
-                {salesData.length > 0 ? (
-                  <div className="h-full w-full bg-gray-50 rounded-lg flex items-center justify-center">
-                    <div className="h-4/5 w-11/12 flex items-end space-x-6">
-                      {salesData.map((month, index) => (
-                        <div key={index} className="flex-1 flex flex-col items-center">
-                          <div
-                            className="w-full bg-blue-500 rounded-t-sm"
-                            style={{
-                              height: `${(month.amount / Math.max(...salesData.map(d => d.amount))) * 100}%`
-                            }}
-                          ></div>
-                          <span className="text-xs text-gray-600 mt-2">{month.month.substring(0, 3)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                {salesData && salesData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={salesData}
+                      margin={{ top: 10, right: 30, left: 20, bottom: 20 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 12, fill: COLORS.primary }}
+                        tickFormatter={(value) => value.substring(0, 3)}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 12, fill: COLORS.primary }}
+                        tickFormatter={(value) => `${value}€`}
+                        width={50}
+                      />
+                      <Tooltip
+                        formatter={(value) => [`${value.toFixed(2)}€`, 'Ventas']}
+                        labelFormatter={(label) => `${label}`}
+                        contentStyle={{ backgroundColor: '#f8f9fa', borderColor: '#e9ecef' }}
+                      />
+                      <Bar
+                        dataKey="amount"
+                        name="Importe"
+                        fill={COLORS.accent1}
+                        activeBar={{ fill: COLORS.accent5 }}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                 ) : (
                   <div className="h-full w-full flex items-center justify-center bg-gray-50 rounded-lg">
                     <p className="text-gray-500">No hay datos disponibles</p>
@@ -601,7 +923,7 @@ const AnalysisModule = () => {
               </div>
             </div>
 
-            {/* Productos más vendidos */}
+            {/* Best selling products */}
             <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Productos más vendidos</h3>
               {topProductsData.length > 0 ? (
@@ -654,39 +976,60 @@ const AnalysisModule = () => {
               )}
             </div>
 
-            {/* Distribución de ventas por categoría */}
+            {/* Sales distribution by category - Improved professional chart */}
             <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Ventas por categoría</h3>
-              {salesByCategory.length > 0 ? (
-                <div className="flex space-x-6">
-                  {/* Gráfico circular simulado */}
-                  <div className="w-40 h-40 relative flex-shrink-0">
-                    <div className="w-full h-full rounded-full" style={{
-                      background: `conic-gradient(
-                        ${salesByCategory.map((category, index) => {
-                        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899'];
-                        const color = colors[index % colors.length];
-                        const prevPercentage = salesByCategory
-                          .slice(0, index)
-                          .reduce((sum, cat) => sum + cat.percentage, 0);
-
-                        return `${color} ${prevPercentage}% ${prevPercentage + category.percentage}%`;
-                      }).join(', ')}
-                      )`
-                    }}></div>
+              {salesByCategory && salesByCategory.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Horizontal bar chart for categories */}
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        layout="vertical"
+                        data={salesByCategory}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                        <XAxis
+                          type="number"
+                          tick={{ fontSize: 12, fill: COLORS.primary }}
+                          tickFormatter={(value) => `${value}€`}
+                        />
+                        <YAxis
+                          dataKey="category"
+                          type="category"
+                          width={100}
+                          tick={{ fontSize: 12, fill: COLORS.primary }}
+                        />
+                        <Tooltip
+                          formatter={(value) => [`${value.toFixed(2)}€`, 'Ventas']}
+                          contentStyle={{ backgroundColor: '#f8f9fa', borderColor: '#e9ecef' }}
+                        />
+                        <Bar
+                          dataKey="revenue"
+                          name="Ingresos"
+                          fill={COLORS.accent3}
+                          radius={[0, 4, 4, 0]}
+                        >
+                          {salesByCategory.map((entry, index) => (
+                            <Cell key={`cell-${entry.id || index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
 
-                  {/* Leyenda */}
-                  <div className="flex-1">
-                    <ul className="space-y-3">
-                      {salesByCategory.map((category, index) => {
-                        const colors = ['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899'];
-                        return (
-                          <li key={category.id} className="flex items-center justify-between">
+                  {/* Legend and percentage display */}
+                  <div className="flex flex-col justify-between">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-700 mb-2">Distribución de ingresos</h4>
+                      <ul className="space-y-3">
+                        {salesByCategory.map((category, index) => (
+                          <li key={`legend-${category.id || index}`} className="flex items-center justify-between">
                             <div className="flex items-center">
                               <span
                                 className="block w-3 h-3 rounded-full mr-2"
-                                style={{ backgroundColor: colors[index % colors.length] }}
+                                style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
                               ></span>
                               <span className="text-sm text-gray-700">{category.category}</span>
                             </div>
@@ -694,13 +1037,13 @@ const AnalysisModule = () => {
                               {category.percentage}%
                             </div>
                           </li>
-                        );
-                      })}
-                    </ul>
+                        ))}
+                      </ul>
+                    </div>
                     <div className="mt-4 pt-3 border-t border-gray-200">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Total</span>
-                        <span className="font-medium">{salesByCategory.reduce((sum, cat) => sum + cat.revenue, 0).toFixed(2)}€</span>
+                        <span className="font-medium">{salesByCategory.reduce((sum, cat) => sum + (cat.revenue || 0), 0).toFixed(2)}€</span>
                       </div>
                     </div>
                   </div>
@@ -713,12 +1056,12 @@ const AnalysisModule = () => {
               )}
             </div>
 
-            {/* Tendencias */}
+            {/* Trends */}
             <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Tendencias y predicciones</h3>
               {topProductsData.length > 0 ? (
                 <div className="space-y-4">
-                  {/* Producto en crecimiento (el que más ha aumentado) */}
+                  {/* Growing product (the one that has increased the most) */}
                   <div className="flex items-center p-3 border border-gray-200 rounded-lg">
                     <div className="flex-shrink-0 h-10 w-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
                       <TrendingUp size={20} className="text-green-600" />
@@ -731,7 +1074,7 @@ const AnalysisModule = () => {
                     </div>
                   </div>
 
-                  {/* Producto en descenso (el que menos ha vendido de los top) */}
+                  {/* Declining product (the one that has sold the least from the top) */}
                   <div className="flex items-center p-3 border border-gray-200 rounded-lg">
                     <div className="flex-shrink-0 h-10 w-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
                       <TrendingDown size={20} className="text-red-600" />
@@ -744,7 +1087,7 @@ const AnalysisModule = () => {
                     </div>
                   </div>
 
-                  {/* Predicción basada en tendencia */}
+                  {/* Prediction based on trend */}
                   <div className="flex items-center p-3 border border-gray-200 rounded-lg">
                     <div className="flex-shrink-0 h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center mr-3">
                       <PieChart size={20} className="text-amber-600" />
@@ -773,26 +1116,32 @@ const AnalysisModule = () => {
 
       {!isLoading && !error && activeTab === 'sales' && (
         <div className="space-y-6">
-          {/* Gráfico de ventas detallado */}
+          {/* Detailed sales chart */}
           <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Evolución de ventas</h3>
             <div className="h-80 w-full">
-              {salesData.length > 0 ? (
-                <div className="h-full w-full bg-gray-50 rounded-lg flex items-center justify-center">
-                  <div className="h-4/5 w-11/12 flex items-end space-x-4">
-                    {salesData.map((month, index) => (
-                      <div key={index} className="flex-1 flex flex-col items-center">
-                        <div
-                          className="w-full bg-blue-500 rounded-t-sm"
-                          style={{
-                            height: `${(month.amount / Math.max(...salesData.map(d => d.amount))) * 100}%`
-                          }}
-                        ></div>
-                        <span className="text-xs text-gray-600 mt-2">{month.month}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {salesData && salesData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={salesData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                    <XAxis dataKey="month" tick={{ fill: COLORS.primary }} />
+                    <YAxis
+                      tickFormatter={(value) => `${value}€`}
+                      tick={{ fill: COLORS.primary }}
+                    />
+                    <Tooltip
+                      formatter={(value) => [`${value.toFixed(2)}€`, 'Ventas']}
+                      labelFormatter={(label) => `${label}`}
+                      contentStyle={{ backgroundColor: '#f8f9fa', borderColor: '#e9ecef' }}
+                    />
+                    <Legend />
+                    <Bar dataKey="amount" name="Importe (€)" fill={COLORS.accent1} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="count" name="Unidades" fill={COLORS.accent2} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="h-full w-full flex items-center justify-center bg-gray-50 rounded-lg">
                   <p className="text-gray-500">No hay datos disponibles</p>
@@ -801,7 +1150,7 @@ const AnalysisModule = () => {
             </div>
           </div>
 
-          {/* Desglose de ventas por periodo */}
+          {/* Sales breakdown by period */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
               <h3 className="text-base font-medium text-gray-900 mb-3">Ventas diarias</h3>
@@ -811,8 +1160,8 @@ const AnalysisModule = () => {
                     {(currentPeriodData.current.totalSales / 30).toFixed(2)}€
                   </div>
                   <div className={`text-xs mt-1 flex items-center ${currentPeriodData.changes.totalSales > 0
-                      ? 'text-green-600'
-                      : 'text-red-600'
+                    ? 'text-green-600'
+                    : 'text-red-600'
                     }`}>
                     {currentPeriodData.changes.totalSales > 0 ? (
                       <ArrowUpRight size={14} className="mr-1" />
@@ -822,20 +1171,24 @@ const AnalysisModule = () => {
                     {Math.abs(currentPeriodData.changes.totalSales).toFixed(1)}% respecto a ayer
                   </div>
                   <div className="mt-4 h-24">
-                    <div className="h-full w-full bg-gray-50 rounded-lg flex items-end px-2">
-                      {/* Simulación de tendencia diaria basada en datos reales */}
-                      {Array.from({ length: 7 }).map((_, index) => {
-                        const randomHeight = 40 + Math.floor(Math.random() * 40);
-                        return (
-                          <div key={index} className="flex-1 mx-1">
-                            <div
-                              className="w-full bg-blue-400 rounded-t-sm"
-                              style={{ height: `${randomHeight}%` }}
-                            ></div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={Array.from({ length: 7 }).map((_, index) => ({
+                          day: index + 1,
+                          value: Math.floor(Math.random() * 100) + 50
+                        }))}
+                        margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
+                      >
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          stroke={COLORS.accent1}
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: COLORS.accent1 }}
+                          activeDot={{ r: 5, fill: COLORS.accent1 }}
+                        />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
                   </div>
                 </>
               ) : (
@@ -853,8 +1206,8 @@ const AnalysisModule = () => {
                     {(currentPeriodData.current.totalSales / 4).toFixed(2)}€
                   </div>
                   <div className={`text-xs mt-1 flex items-center ${currentPeriodData.changes.totalSales > 0
-                      ? 'text-green-600'
-                      : 'text-red-600'
+                    ? 'text-green-600'
+                    : 'text-red-600'
                     }`}>
                     {currentPeriodData.changes.totalSales > 0 ? (
                       <ArrowUpRight size={14} className="mr-1" />
@@ -864,20 +1217,24 @@ const AnalysisModule = () => {
                     {Math.abs(currentPeriodData.changes.totalSales).toFixed(1)}% respecto a la semana pasada
                   </div>
                   <div className="mt-4 h-24">
-                    <div className="h-full w-full bg-gray-50 rounded-lg flex items-end px-2">
-                      {/* Simulación de tendencia semanal basada en datos reales */}
-                      {Array.from({ length: 5 }).map((_, index) => {
-                        const randomHeight = 45 + Math.floor(Math.random() * 35);
-                        return (
-                          <div key={index} className="flex-1 mx-1">
-                            <div
-                              className="w-full bg-indigo-400 rounded-t-sm"
-                              style={{ height: `${randomHeight}%` }}
-                            ></div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={Array.from({ length: 5 }).map((_, index) => ({
+                          week: index + 1,
+                          value: Math.floor(Math.random() * 200) + 100
+                        }))}
+                        margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
+                      >
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          stroke={COLORS.accent3}
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: COLORS.accent3 }}
+                          activeDot={{ r: 5, fill: COLORS.accent3 }}
+                        />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
                   </div>
                 </>
               ) : (
@@ -895,8 +1252,8 @@ const AnalysisModule = () => {
                     {currentPeriodData.current.totalSales.toFixed(2)}€
                   </div>
                   <div className={`text-xs mt-1 flex items-center ${currentPeriodData.changes.totalSales > 0
-                      ? 'text-green-600'
-                      : 'text-red-600'
+                    ? 'text-green-600'
+                    : 'text-red-600'
                     }`}>
                     {currentPeriodData.changes.totalSales > 0 ? (
                       <ArrowUpRight size={14} className="mr-1" />
@@ -906,19 +1263,24 @@ const AnalysisModule = () => {
                     {Math.abs(currentPeriodData.changes.totalSales).toFixed(1)}% respecto al mes pasado
                   </div>
                   <div className="mt-4 h-24">
-                    <div className="h-full w-full bg-gray-50 rounded-lg flex items-end px-2">
-                      {/* Datos de tendencia mensual basados en salesData */}
-                      {salesData.slice(-6).map((month, index) => (
-                        <div key={index} className="flex-1 mx-1">
-                          <div
-                            className="w-full bg-purple-400 rounded-t-sm"
-                            style={{
-                              height: `${(month.amount / Math.max(...salesData.map(d => d.amount))) * 100}%`
-                            }}
-                          ></div>
-                        </div>
-                      ))}
-                    </div>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsLineChart
+                        data={salesData.slice(-6).map((month, index) => ({
+                          month: month.month,
+                          value: month.amount
+                        }))}
+                        margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
+                      >
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          stroke={COLORS.accent4}
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: COLORS.accent4 }}
+                          activeDot={{ r: 5, fill: COLORS.accent4 }}
+                        />
+                      </RechartsLineChart>
+                    </ResponsiveContainer>
                   </div>
                 </>
               ) : (
@@ -929,7 +1291,7 @@ const AnalysisModule = () => {
             </div>
           </div>
 
-          {/* Comparativa de ventas */}
+          {/* Sales comparison */}
           <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">Comparativa de periodos</h3>
@@ -967,8 +1329,8 @@ const AnalysisModule = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentPeriodData.changes.totalSales > 0
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
                           }`}>
                           {currentPeriodData.changes.totalSales > 0 ? '+' : ''}
                           {currentPeriodData.changes.totalSales.toFixed(1)}%
@@ -987,13 +1349,14 @@ const AnalysisModule = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentPeriodData.changes.orderCount > 0
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
                           }`}>
                           {currentPeriodData.changes.orderCount > 0 ? '+' : ''}
                           {currentPeriodData.changes.orderCount.toFixed(1)}%
                         </span>
                       </td>
+
                     </tr>
                     <tr className="hover:bg-gray-50">
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -1007,8 +1370,8 @@ const AnalysisModule = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentPeriodData.changes.avgTicket > 0
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
                           }`}>
                           {currentPeriodData.changes.avgTicket > 0 ? '+' : ''}
                           {currentPeriodData.changes.avgTicket.toFixed(1)}%
@@ -1027,8 +1390,8 @@ const AnalysisModule = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentPeriodData.changes.categoryCount > 0
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
                           }`}>
                           {currentPeriodData.changes.categoryCount > 0 ? '+' : ''}
                           {currentPeriodData.changes.categoryCount.toFixed(1)}%
@@ -1057,7 +1420,11 @@ const AnalysisModule = () => {
               <>
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-4">
                   {productsAnalysis.products.slice(0, 5).map((product, index) => (
-                    <div key={product.id} className="p-4 border border-gray-200 rounded-lg">
+                    <div
+                      key={product.id}
+                      className="p-4 border border-gray-200 rounded-lg"
+                      style={{ backgroundColor: `${CHART_COLORS[index % CHART_COLORS.length]}20` }}
+                    >
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="text-xs text-gray-500">#{index + 1}</div>
@@ -1074,8 +1441,11 @@ const AnalysisModule = () => {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${(product.sales / productsAnalysis.products[0].sales) * 100}%` }}
+                            className="h-2 rounded-full"
+                            style={{
+                              width: `${Math.min((product.sales / productsAnalysis.products[0].sales) * 100, 100)}%`,
+                              backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+                            }}
                           ></div>
                         </div>
                       </div>
@@ -1086,15 +1456,17 @@ const AnalysisModule = () => {
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
-                            className="bg-green-600 h-2 rounded-full"
-                            style={{ width: `${(product.revenue / productsAnalysis.products[0].revenue) * 100}%` }}
+                            className="h-2 rounded-full"
+                            style={{
+                              width: `${Math.min((product.revenue / productsAnalysis.products[0].revenue) * 100, 100)}%`,
+                              backgroundColor: CHART_COLORS[(index + 5) % CHART_COLORS.length]
+                            }}
                           ></div>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -1123,7 +1495,7 @@ const AnalysisModule = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {productsAnalysis.products.map((product) => (
+                      {productsAnalysis.products.map((product, index) => (
                         <tr key={product.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                             {product.name}
@@ -1132,7 +1504,10 @@ const AnalysisModule = () => {
                             {product.sku}
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                            <span
+                              className="px-2 py-1 text-xs font-medium rounded-full text-gray-800"
+                              style={{ backgroundColor: `${CHART_COLORS[index % CHART_COLORS.length]}50` }}
+                            >
                               {product.category}
                             </span>
                           </td>
@@ -1195,41 +1570,41 @@ const AnalysisModule = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {productsAnalysis.categories.map((category, index) => {
-                      const colors = ['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899'];
-                      return (
-                        <tr key={category.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
-                              {category.category}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                            {category.productCount || 0}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                            {category.sales || 0} uds.
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                            {category.revenue?.toFixed(2) || '0.00'}€
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                            {category.percentage || 0}%
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap pr-6">
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div
-                                className="h-2 rounded-full"
-                                style={{
-                                  width: `${category.percentage || 0}%`,
-                                  backgroundColor: colors[index % colors.length]
-                                }}
-                              ></div>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {productsAnalysis.categories.map((category, index) => (
+                      <tr key={category.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className="px-2 py-1 text-xs font-medium rounded-full text-gray-800"
+                            style={{ backgroundColor: `${CHART_COLORS[index % CHART_COLORS.length]}50` }}
+                          >
+                            {category.category}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {category.productCount || 0}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {category.sales || 0} uds.
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {category.revenue?.toFixed(2) || '0.00'}€
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {category.percentage || 0}%
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap pr-6">
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full"
+                              style={{
+                                width: `${category.percentage || 0}%`,
+                                backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+                              }}
+                            ></div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -1271,8 +1646,8 @@ const AnalysisModule = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {salesHistory.map((sale) => (
-                      <tr key={sale.id} className="hover:bg-gray-50">
+                    {salesHistory.map((sale, index) => (
+                      <tr key={`${sale.id}-${index}`} className="hover:bg-gray-50">
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                           {sale.date}
                         </td>

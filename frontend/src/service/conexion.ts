@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://192.168.11.4:3001';
+const API_URL = 'http://192.168.11.3:3001';
 
 /**
  * Obtiene los datos del dashboard principal
@@ -615,3 +615,183 @@ export const exportData = async (params = {}) => {
     throw error;
   }
 };
+
+
+export const signIn = async (credentials) => {
+  try {
+    const response = await axios.post(`${API_URL}/api/auth/login`, credentials);
+    
+    // La cookie debería ser establecida por el servidor, pero si no:
+    if (response.data.token) {
+      document.cookie = `cookieKey=${response.data.token}; path=/; max-age=86400`; // 1 día
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error al iniciar sesión:', error);
+    throw error;
+  }
+};
+
+// Función para cerrar sesión
+export const signOut = () => {
+  // Eliminar cookie
+  document.cookie = 'cookieKey=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+  // Eliminar datos de localStorage
+  localStorage.removeItem('datauser');
+};
+
+
+
+
+/**
+ * Obtiene todas las notificaciones
+ * @returns {Promise} Promesa que resuelve a un array de notificaciones
+ */
+export async function getAllNotifications() {
+  try {
+    const response = await fetch(`${API_URL}/api/notificaciones`);
+    
+    if (!response.ok) {
+      throw new Error('Error al obtener notificaciones');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getAllNotifications:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene solo las notificaciones pendientes
+ * @returns {Promise} Promesa que resuelve a un array de notificaciones pendientes
+ */
+export async function getPendingNotifications() {
+  try {
+    const response = await fetch(`${API_URL}/api/notificaciones/pending`);
+    
+    if (!response.ok) {
+      throw new Error('Error al obtener notificaciones pendientes');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getPendingNotifications:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene un resumen de las notificaciones por estado y prioridad
+ * @returns {Promise} Promesa que resuelve a un objeto con el resumen
+ */
+export async function getNotificationsSummary() {
+  try {
+    const response = await fetch(`${API_URL}/api/notificaciones/summary`);
+    
+    if (!response.ok) {
+      throw new Error('Error al obtener resumen de notificaciones');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getNotificationsSummary:', error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene las últimas notificaciones para el dashboard
+ * @param {number} limit - Número máximo de notificaciones a obtener
+ * @returns {Promise} Promesa que resuelve a un array de notificaciones
+ */
+export async function getLatestNotifications(limit = 5) {
+  try {
+    const response = await fetch(`${API_URL}/api/notificaciones/latest?limit=${limit}`);
+    
+    if (!response.ok) {
+      throw new Error('Error al obtener últimas notificaciones');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error en getLatestNotifications:', error);
+    throw error;
+  }
+}
+
+/**
+ * Marca una notificación como resuelta
+ * @param {number} id - ID de la notificación
+ * @returns {Promise} Promesa que resuelve a un objeto con el resultado
+ */
+export async function resolveNotification(id) {
+  try {
+    const response = await fetch(`${API_URL}/api/notificaciones/${id}/resolve`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error al resolver notificación');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error en resolveNotification:', error);
+    throw error;
+  }
+}
+
+/**
+ * Marca una notificación como ignorada
+ * @param {number} id - ID de la notificación
+ * @returns {Promise} Promesa que resuelve a un objeto con el resultado
+ */
+export async function ignoreNotification(id) {
+  try {
+    const response = await fetch(`${API_URL}/api/notificaciones/${id}/ignore`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error al ignorar notificación');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error en ignoreNotification:', error);
+    throw error;
+  }
+}
+
+/**
+ * Marca como resueltas todas las notificaciones de un producto
+ * @param {number} productId - ID del producto
+ * @returns {Promise} Promesa que resuelve a un objeto con el resultado
+ */
+export async function resolveProductNotifications(productId) {
+  try {
+    const response = await fetch(`${API_URL}/api/notificaciones/product/${productId}/resolve`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Error al resolver notificaciones del producto');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error en resolveProductNotifications:', error);
+    throw error;
+  }
+}

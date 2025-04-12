@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
     Package,
     Search,
@@ -36,6 +37,8 @@ export default function ProductosPage() {
     const [stockFilter, setStockFilter] = useState('');
     const [filteredCategoryProducts, setFilteredCategoryProducts] = useState([]);
     const [showCategoryProducts, setShowCategoryProducts] = useState(false);
+    const searchInputRef = useRef(null);
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
     // Estados para almacenar datos de la API
     const [loading, setLoading] = useState(true);
@@ -44,19 +47,17 @@ export default function ProductosPage() {
     const [stockResumen, setStockResumen] = useState({ bajo: 0, medio: 0, bueno: 0 });
     const [stockDetalle, setStockDetalle] = useState([]);
 
-    // Obtener datos del dashboard
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
                 setLoading(true);
-                // Usar la función de conexion.ts en lugar de axios directamente
                 const data = await getDashboardData({
-                    searchTerm,
+                    searchTerm: debouncedSearchTerm,  // Usar el término debounceado aquí
                     categoryFilter,
                     stockFilter
                 });
+                console.log(data)
 
-                // Actualizar estados con los datos recibidos
                 setCategorias(data.categorias);
                 setProductos(data.productos);
                 setStockResumen(data.stockResumen);
@@ -70,11 +71,11 @@ export default function ProductosPage() {
         };
 
         fetchDashboardData();
-    }, [searchTerm, categoryFilter, stockFilter]); // Recargar cuando cambien los filtros
+    }, [debouncedSearchTerm, categoryFilter, stockFilter]);
 
-    // Filtrar productos según los criterios
+
     const filteredProducts = productos.filter(producto => {
-        // Filtro por búsqueda - Verificar que los valores existan antes de usar toLowerCase()
+        // Filtro por búsqueda
         const matchesSearch =
             (producto.nombre && searchTerm ? producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) : false) ||
             (producto.sku && searchTerm ? producto.sku.toLowerCase().includes(searchTerm.toLowerCase()) : false);
@@ -93,7 +94,6 @@ export default function ProductosPage() {
 
         return (matchesSearch || showAll) && matchesCategory && matchesStock;
     });
-
     // Función para abrir el formulario de nuevo producto
     const openNewProductForm = () => {
         setSelectedProduct(null);
@@ -195,73 +195,161 @@ export default function ProductosPage() {
         }
     };
 
-    // Función para actualizar una categoría
-    const handleUpdateCategory = async (categoryId, categoryData) => {
-        try {
-            // Actualizar categoría usando la función de conexion.ts
-            await updateCategoria(categoryId, categoryData);
+    const filteredStockDetails = stockDetalle.filter(producto => {
+        // Filtro por búsqueda
+        const matchesSearch = !searchTerm || 
+            (producto.nombre && producto.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (producto.sku && producto.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+        // Filtro por nivel de stock
+        const matchesStockLevel = stockFilter === '' ||
+            (stockFilter === 'low' && producto.stock_actual < 10) ||
+            (stockFilter === 'medium' && producto.stock_actual >= 10 && producto.stock_actual < 30) ||
+            (stockFilter === 'high' && producto.stock_actual >= 30);
+    
+        return matchesSearch && matchesStockLevel;
+    });
 
-            // Recargar datos usando la función de conexion.ts
-            const data = await getDashboardData();
-            setCategorias(data.categorias);
-            closeForm();
-        } catch (error) {
-            console.error('Error al actualizar categoría:', error);
-            // Aquí podrías mostrar un mensaje de error
-        }
-    };
-
-    // Función para exportar datos a CSV
-    const handleExport = (data, filename) => {
+    const handleExportExcel = (data, filename) => {
         try {
-            let csvContent = '';
+            console.log(data)
+            // Importar SheetJS si aún no está en tu proyecto
+            // npm install xlsx
+            // import * as XLSX from 'xlsx';
+
+            // Preparar los datos según el tipo de archivo
+            let exportData = [];
 
             // Si son productos
             if (filename.includes('productos')) {
-                // Encabezados
-                csvContent = 'ID,Nombre,SKU,Categoría,Precio,Stock,Fecha Creación\n';
+                // Añadir encabezados como primer elemento
+                exportData.push(['ID', 'Nombre', 'SKU', 'Categoría', 'Precio', 'Costo', 'Stock', 'Stock Mínimo', 'Fecha Creación']);
 
-                // Datos
+                // Añadir datos
                 data.forEach(item => {
-                    csvContent += `${item.id},"${item.nombre}",${item.sku},"${item.categoria}",${item.precio},${item.stock},${new Date(item.fechaCreacion).toLocaleDateString()}\n`;
+                    // Formatear la fecha correctamente (yyyy-mm-dd -> dd/mm/yyyy)
+                    let fechaFormateada = '';
+
+                    if (item.fechacreacion) {
+                        try {
+                            // Las fechas ya están en formato YYYY-MM-DD
+                            const partes = item.fechacreacion.split('-');
+                            if (partes.length === 3) {
+                                // Invertir el orden: de YYYY-MM-DD a DD/MM/YYYY
+                                fechaFormateada = `${partes[2]}/${partes[1]}/${partes[0]}`;
+                            } else {
+                                // Si el formato no es el esperado, intentar con Date
+                                const fecha = new Date(item.fechacreacion);
+                                if (!isNaN(fecha.getTime())) {
+                                    fechaFormateada = `${fecha.getDate().toString().padStart(2, '0')}/${(fecha.getMonth() + 1).toString().padStart(2, '0')}/${fecha.getFullYear()}`;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Error al formatear fecha:', e);
+                        }
+                    }
+
+                    exportData.push([
+                        item.id,
+                        item.nombre,
+                        item.sku || '',  // Usar string vacío si es null
+                        item.categoria,
+                        item.precio,
+                        item.costo,
+                        item.stock,
+                        item.stock_minimo,
+                        fechaFormateada
+                    ]);
                 });
             }
             // Si son categorías
             else if (filename.includes('categorias')) {
-                // Encabezados
-                csvContent = 'ID,Nombre,Productos\n';
+                // Añadir encabezados
+                exportData.push(['ID', 'Nombre', 'Productos']);
 
-                // Datos
+                // Añadir datos
                 data.forEach(item => {
-                    csvContent += `${item.id},"${item.nombre}",${item.productos}\n`;
+                    exportData.push([
+                        item.id,
+                        item.nombre,
+                        item.productos || 0
+                    ]);
                 });
             }
             // Si es stock
             else if (filename.includes('stock')) {
-                // Encabezados
-                csvContent = 'ID,Nombre,SKU,Stock Actual,Stock Mínimo,Estado\n';
+                // Añadir encabezados
+                exportData.push(['ID', 'Nombre', 'SKU', 'Stock Actual', 'Stock Mínimo', 'Estado']);
 
-                // Datos
+                // Añadir datos
                 data.forEach(item => {
-                    csvContent += `${item.id},"${item.nombre}",${item.sku},${item.stock_actual},${item.stock_minimo},"${item.estado_stock}"\n`;
+                    // Determinar el estado del stock
+                    let estadoStock = '';
+                    // Verificar qué propiedad existe en el objeto para el stock actual
+                    const stockActual = item.stock_actual !== undefined ? item.stock_actual : item.stock;
+                    const stockMinimo = item.stock_minimo !== undefined ? item.stock_minimo :
+                        (item.stockMinimo !== undefined ? item.stockMinimo : 0);
+
+                    if (stockActual < stockMinimo) {
+                        estadoStock = 'Bajo';
+                    } else if (stockActual >= stockMinimo * 2) {
+                        estadoStock = 'Óptimo';
+                    } else {
+                        estadoStock = 'Normal';
+                    }
+
+                    // Imprimir objeto para depuración
+                    console.log('Item de stock:', item);
+
+                    exportData.push([
+                        item.id,
+                        item.nombre,
+                        item.sku || '',
+                        stockActual,  // Usar la propiedad correcta según exista
+                        stockMinimo,  // Usar la propiedad correcta según exista
+                        estadoStock
+                    ]);
                 });
             }
 
-            // Crear blob y link para descarga
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `${filename}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // Crear una hoja de trabajo
+            const ws = XLSX.utils.aoa_to_sheet(exportData);
+
+            // Aplicar estilos a las celdas (opcional)
+            // Por ejemplo, podemos ajustar el ancho de las columnas
+            const colWidths = [
+                { wch: 8 },   // ID
+                { wch: 30 },  // Nombre
+                { wch: 15 },  // SKU/Productos 
+                { wch: 20 },  // Categoría/Stock Actual
+                { wch: 15 },  // Precio/Stock Mínimo
+                { wch: 15 },  // Costo/Estado
+                { wch: 10 },  // Stock
+                { wch: 15 },  // Stock Mínimo
+                { wch: 15 }   // Fecha Creación
+            ];
+            ws['!cols'] = colWidths.slice(0, exportData[0].length);
+
+            // Crear un libro de trabajo y añadir la hoja
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+
+            // Escribir el archivo y descargarlo
+            XLSX.writeFile(wb, `${filename}.xlsx`);
+
+            console.log(`Archivo ${filename}.xlsx exportado correctamente`);
+            return true;
+
         } catch (error) {
-            console.error('Error al exportar datos:', error);
-            alert('Error al exportar datos. Intente de nuevo.');
+            console.error('Error al exportar datos a Excel:', error);
+            alert('Error al exportar datos a Excel. Intente de nuevo.');
+            return false;
         }
     };
+
+
+    // Ejemplo de uso:
+    // handleExportExcel(misProductos, 'reporte_productos');
 
     // Función para filtrar stock
     // Función para filtrar stock
@@ -434,7 +522,7 @@ export default function ProductosPage() {
                         </button>
 
                         <button
-                            onClick={() => handleExport(filteredProducts, 'productos-export')}
+                            onClick={() => handleExportExcel(filteredProducts, 'productos-export')}
                             className="px-4 py-2 bg-white border border-slate-200 rounded-md text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center">
                             <Download className="w-4 h-4 mr-2" />
                             Exportar
@@ -477,6 +565,7 @@ export default function ProductosPage() {
                                         className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
+                                        ref={searchInputRef}
                                     />
                                 </div>
 
@@ -503,10 +592,6 @@ export default function ProductosPage() {
                                         <option value="high">Stock alto (&gt; 30)</option>
                                     </select>
 
-                                    <button className="flex items-center px-3 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white hover:bg-slate-50">
-                                        <Filter className="w-4 h-4 mr-2" />
-                                        Más filtros
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -543,7 +628,7 @@ export default function ProductosPage() {
                                                             <div>
                                                                 <div className="font-medium text-slate-800">{producto.nombre}</div>
                                                                 <div className="text-xs text-slate-500 mt-0.5">
-                                                                    Creado: {new Date(producto.fechaCreacion).toLocaleDateString()}
+                                                                    Creado: {new Date(producto.fechacreacion).toLocaleDateString()}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -577,9 +662,7 @@ export default function ProductosPage() {
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
-                                                            <button className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md">
-                                                                <EyeIcon className="w-4 h-4" />
-                                                            </button>
+                                                         
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -622,7 +705,7 @@ export default function ProductosPage() {
                                     Nueva Categoría
                                 </button>
                                 <button
-                                    onClick={() => handleExport(categorias, 'categorias-export')}
+                                    onClick={() => handleExportExcel(categorias, 'categorias-export')}
                                     className="px-4 py-2 bg-white border border-slate-200 rounded-md text-slate-600 text-sm font-medium hover:bg-slate-50 flex items-center">
                                     <Download className="w-4 h-4 mr-2" />
                                     Exportar
@@ -712,7 +795,7 @@ export default function ProductosPage() {
                                                             <div>
                                                                 <div className="font-medium text-slate-800">{producto.nombre}</div>
                                                                 <div className="text-xs text-slate-500 mt-0.5">
-                                                                    Creado: {new Date(producto.fechaCreacion).toLocaleDateString()}
+                                                                    Creado: {new Date(producto.fechacreacion).toLocaleDateString()}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -740,9 +823,7 @@ export default function ProductosPage() {
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
-                                                            <button className="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md">
-                                                                <EyeIcon className="w-4 h-4" />
-                                                            </button>
+                                                            
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -799,25 +880,48 @@ export default function ProductosPage() {
                             </div>
                         </div>
 
+                        {/* Filtros y acciones */}
+                        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
+                            <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-4">
+                                <div className="flex-1 relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Search className="h-5 w-5 text-slate-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar por nombre o SKU..."
+                                        className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-md text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                </div>
 
-                        {/* Tabla de stock */}
-                        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                            <div className="p-4 border-b border-slate-200 flex justify-between items-center">
-                                <h3 className="font-semibold text-slate-800">Estado detallado de stock</h3>
-                                <div className="flex space-x-2">
+                                <div className="flex flex-wrap gap-2">
+                                    <select
+                                        className="pl-3 pr-8 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        value={stockFilter}
+                                        onChange={(e) => setStockFilter(e.target.value)}
+                                    >
+                                        <option value="">Todos los niveles de stock</option>
+                                        <option value="low">Stock bajo (&lt; 10)</option>
+                                        <option value="medium">Stock medio (10-30)</option>
+                                        <option value="high">Stock alto (&gt; 30)</option>
+                                    </select>
+
                                     <button
-                                        onClick={handleFilterStock}
-                                        className="px-3 py-1.5 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
-                                        <Filter className="w-4 h-4 mr-2" />
-                                        Filtrar
-                                    </button>
-                                    <button
-                                        onClick={() => handleExport(stockDetalle, 'stock-detalle-export')}
+                                        onClick={() => handleExportExcel(filteredStockDetails, 'stock-detalle-export')}
                                         className="px-3 py-1.5 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
                                         <Download className="w-4 h-4 mr-2" />
                                         Exportar
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Tabla de stock */}
+                        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="p-4 border-b border-slate-200">
+                                <h3 className="font-semibold text-slate-800">Estado detallado de stock</h3>
                             </div>
 
                             <div className="overflow-x-auto">
@@ -829,36 +933,43 @@ export default function ProductosPage() {
                                             <th className="px-4 py-3 text-center">Stock Actual</th>
                                             <th className="px-4 py-3 text-center">Stock Mínimo</th>
                                             <th className="px-4 py-3 text-center">Estado</th>
-                                            <th className="px-4 py-3 text-right">Acciones</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {stockDetalle.map((producto) => (
-                                            <tr key={producto.id} className="border-b border-slate-100 hover:bg-slate-50 last:border-b-0">
-                                                <td className="px-4 py-3">
-                                                    <div className="font-medium text-slate-800">{producto.nombre}</div>
+                                        {filteredStockDetails.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="5" className="px-4 py-8 text-center text-slate-500">
+                                                    No se encontraron productos con los filtros seleccionados.
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-slate-600">{producto.sku}</td>
-                                                <td className="px-4 py-3 text-sm text-center font-medium">{producto.stock_actual}</td>
-                                                <td className="px-4 py-3 text-sm text-center text-slate-600">{producto.stock_minimo}</td>
-                                                <td className="px-4 py-3 text-sm text-center">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${producto.status_color}`}>
-                                                        {producto.estado_stock}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    <button
-                                                        onClick={() => updateStock(producto.id, producto.stock_actual)}
-                                                        className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-                                                        Actualizar Stock
-                                                    </button>
-                                                </td>
-
                                             </tr>
-                                        ))}
+                                        ) : (
+                                            filteredStockDetails.map((producto) => (
+                                                <tr key={producto.id} className="border-b border-slate-100 hover:bg-slate-50 last:border-b-0">
+                                                    <td className="px-4 py-3">
+                                                        <div className="font-medium text-slate-800">{producto.nombre}</div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-slate-600">{producto.sku}</td>
+                                                    <td className="px-4 py-3 text-sm text-center font-medium">{producto.stock_actual}</td>
+                                                    <td className="px-4 py-3 text-sm text-center text-slate-600">{producto.stock_minimo}</td>
+                                                    <td className="px-4 py-3 text-sm text-center">
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${producto.status_color}`}>
+                                                            {producto.estado_stock}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
+
+                            {filteredStockDetails.length > 0 && (
+                                <div className="px-4 py-3 border-t border-slate-200 flex items-center justify-between">
+                                    <div className="text-sm text-slate-500">
+                                        Mostrando <span className="font-medium">{filteredStockDetails.length}</span> de <span className="font-medium">{stockDetalle.length}</span> productos
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </>
                 )}
@@ -1023,29 +1134,7 @@ export default function ProductosPage() {
                                             ></textarea>
                                         </div>
 
-                                        <div className="md:col-span-2">
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">
-                                                Imagen del Producto
-                                            </label>
-                                            <input type="hidden" name="imagen" value={selectedProduct?.imagen || ''} />
-                                            <div className="mt-1 flex items-center">
-                                                <div className="w-24 h-24 border border-slate-200 rounded-md overflow-hidden bg-slate-50 mr-4 flex items-center justify-center">
-                                                    {selectedProduct?.imagen ? (
-                                                        <img
-                                                            src="/api/placeholder/100/100"
-                                                            alt="Imagen del producto"
-                                                            className="w-full h-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <Image className="w-8 h-8 text-slate-300" />
-                                                    )}
-                                                </div>
-                                                <button type="button" className="px-4 py-2 border border-slate-200 rounded-md text-sm text-slate-600 hover:bg-slate-50 flex items-center">
-                                                    <Upload className="w-4 h-4 mr-2" />
-                                                    Subir imagen
-                                                </button>
-                                            </div>
-                                        </div>
+                                  
                                     </div>
 
                                     <div className="border-t border-slate-200 pt-5 flex justify-end space-x-3">

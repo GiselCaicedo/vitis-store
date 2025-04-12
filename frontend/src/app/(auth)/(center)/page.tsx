@@ -79,13 +79,7 @@ export default function HomePage() {
     router.push('/alertas');
   };
   
-  const navigateToHistorial = () => {
-    router.push('/historial');
-  };
-  
-  const navigateToReportes = () => {
-    router.push('/reportes');
-  };
+
   
   // Función para manejar la selección de fecha
   const handleDateChange = (e) => {
@@ -154,12 +148,7 @@ export default function HomePage() {
               </button>
               {showDatePicker && <DatePicker />}
             </div>
-            <button 
-              onClick={navigateToReportes}
-              className="px-4 py-2 bg-blue-600 rounded-md text-white text-sm font-medium hover:bg-blue-700 flex items-center">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Generar Reportes
-            </button>
+        
           </div>
         </div>
 
@@ -312,64 +301,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Actividades Recientes */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 mb-8">
-          <div className="p-5 border-b border-slate-200 flex justify-between items-center">
-            <h2 className="font-semibold text-slate-800">Actividades Recientes</h2>
-            <button 
-              onClick={navigateToHistorial}
-              className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
-              Ver historial completo
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
-          </div>
-          <div className="p-5">
-            {loading ? (
-              <div className="animate-pulse space-y-3">
-                {Array(5).fill(0).map((_, idx) => (
-                  <div key={idx} className="h-16 bg-slate-200 rounded w-full"></div>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentActivities.map((activity) => (
-                  <div key={activity.id_actualizacion} className="flex items-start p-2 rounded-md hover:bg-slate-50 cursor-pointer"
-                       onClick={() => router.push(`/historial/${activity.id_actualizacion}`)}>
-                    <div className={`mt-0.5 rounded-full p-1.5 ${
-                      activity.tipo_cambio === 'Stock' ? 'bg-green-100 text-green-600' : 
-                      activity.tipo_cambio === 'Precio' ? 'bg-blue-100 text-blue-600' : 
-                      'bg-purple-100 text-purple-600'
-                    }`}>
-                      {activity.tipo_cambio === 'Stock' ? <Package className="w-4 h-4" /> : 
-                       activity.tipo_cambio === 'Precio' ? <DollarSign className="w-4 h-4" /> : 
-                       <Tag className="w-4 h-4" />}
-                    </div>
-                    <div className="ml-3 flex-1">
-                      <p className="text-sm">
-                        <span className="font-medium text-slate-800">{activity.nombre_usuario}</span>
-                        <span className="text-slate-600"> {activity.cambio_realizado}</span>
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Producto: {activity.nombre_producto} - Valor anterior: {activity.valor_anterior} - Nuevo valor: {activity.valor_nuevo}
-                      </p>
-                      <div className="flex items-center mt-1">
-                        <Clock className="w-3 h-3 text-slate-400" />
-                        <span className="ml-1 text-xs text-slate-400">
-                          {new Date(activity.fecha_actualizacion).toLocaleString('es-ES', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            day: '2-digit',
-                            month: '2-digit'
-                          })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+     
       </main>
     </div>
   );

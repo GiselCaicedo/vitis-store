@@ -3,7 +3,7 @@ import { verifyToken } from '@src/service/verify-token';
 
 const isProtectedRoute = (pathname: string) => {
   const protectedRoutes = ['/dashboard', '/'];
-  return protectedRoutes.some((route) => pathname.includes(route));
+  return protectedRoutes.some((route) => pathname.startsWith(route));
 };
 
 const isAuthRoute = (pathname: string) => {
@@ -30,8 +30,8 @@ export default async function middleware(request: NextRequest) {
   }
 
   if (isProtectedRoute(pathname)) {
-    const token = request.cookies.get('authToken')?.value;
-    console.log('Token obtenido del middleware:', token);
+    const token = request.cookies.get('cookieKey')?.value;
+    console.log('Token obtenido del middleware:', token ? 'Token presente' : 'No hay token');
 
     if (!token) {
       console.log('No hay token, redirigiendo a /sign-in');
@@ -40,11 +40,13 @@ export default async function middleware(request: NextRequest) {
     }
 
     try {
-      const decoded = verifyToken(token);
-      console.log('Token verificado correctamente:', decoded);
+      // IMPORTANTE: Esperar la resolución de la promesa con await
+      const decoded = await verifyToken(token);
+      console.log('Token verificado correctamente');
+      // Permitir continuar a la ruta protegida
     } catch (err: unknown) {
       const error = err as TokenError;
-      console.error('Error al verificar el token:', error);
+      console.error('Error al verificar el token:', error.name, error.message);
       const signInUrl = new URL('/sign-in', request.url);
       return Response.redirect(signInUrl.toString(), 302);
     }

@@ -11,6 +11,7 @@ import {
   getClientes,
   getProductosParaVenta
 } from '@src/service/conexion';
+import * as XLSX from 'xlsx';
 
 const SalesModule = () => {
   const [activeTab, setActiveTab] = useState('registro');
@@ -69,6 +70,150 @@ const SalesModule = () => {
       setPagination(data.pagination);
     } catch (error) {
       console.error('Error al cargar ventas:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Modificación del handleExportExcel para exportar datos de ventas
+  const handleExportExcel = () => {
+    // Verificar si hay ventas para exportar
+    if (sales.length === 0) {
+      alert('No hay ventas para exportar');
+      return;
+    }
+
+    try {
+      // Preparar los datos para exportación
+      let exportData = [];
+
+      // Crear encabezados para ventas
+      exportData.push([
+        'ID',
+        'Fecha',
+        'Cliente',
+        'Total',
+        'Items',
+        'Estado',
+        'Método de Pago',
+        'Notas'
+      ]);
+
+      // Añadir datos de ventas
+      sales.forEach(sale => {
+        if (!sale) return; // Omitir esta iteración si la venta es undefined
+
+        exportData.push([
+          sale.id,
+          sale.date,
+          sale.customer,
+          parseFloat(sale.total).toFixed(2),
+          sale.items,
+          getStatusText(sale.status),
+          sale.paymentMethod || '',
+          sale.notes || ''
+        ]);
+      });
+
+      // Crear una hoja de trabajo
+      const ws = XLSX.utils.aoa_to_sheet(exportData);
+
+      // Aplicar estilos a las celdas (anchos de columna)
+      const colWidths = [
+        { wch: 8 },     // ID
+        { wch: 15 },    // Fecha
+        { wch: 30 },    // Cliente
+        { wch: 12 },    // Total
+        { wch: 10 },    // Items
+        { wch: 15 },    // Estado
+        { wch: 20 },    // Método de Pago
+        { wch: 30 }     // Notas
+      ];
+
+      ws['!cols'] = colWidths;
+
+      // Crear un libro de trabajo y añadir la hoja
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Ventas');
+
+      // Escribir el archivo y descargarlo
+      const filename = 'ventas_' + new Date().toISOString().split('T')[0];
+      XLSX.writeFile(wb, `${filename}.xlsx`);
+
+      alert(`Archivo ${filename}.xlsx exportado correctamente`);
+      return true;
+
+    } catch (error) {
+      console.error('Error al exportar datos a Excel:', error);
+      alert('Error al exportar datos a Excel. Intente de nuevo.');
+      return false;
+    }
+  };
+
+
+  // Función para exportar las ventas actuales
+  const exportCurrentSales = () => {
+    if (sales.length === 0) {
+      alert('No hay ventas para exportar');
+      return;
+    }
+
+    // Llamar a la función de exportación con los datos y nombre de archivo
+    handleExportExcel(sales, 'ventas_actuales');
+  };
+
+  // Función para exportar todas las ventas (requiere obtener todos los datos)
+  const exportAllSales = async () => {
+    setLoading(true);
+    try {
+      // Llamamos a la API pero con un límite alto para obtener más datos
+      const params = {
+        page: 1,
+        limit: 1000, // Un número grande para intentar obtener todos los datos
+        searchTerm,
+        estado: statusFilter !== 'Todos' ? statusFilter : null,
+        fechaInicio: startDateFilter || null,
+        fechaFin: endDateFilter || null
+      };
+
+      const data = await getVentas(params);
+
+      if (!data.ventas || data.ventas.length === 0) {
+        alert('No hay ventas para exportar');
+        return;
+      }
+
+      // Exportamos todos los datos obtenidos
+      handleExportExcel(data.ventas, 'todas_las_ventas');
+    } catch (error) {
+      console.error('Error al obtener ventas para exportar:', error);
+      alert('Error al obtener datos para exportar. Intente de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para exportar el historial de ventas
+  const exportSalesHistory = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        fechaInicio: startDateFilter || null,
+        fechaFin: endDateFilter || null
+      };
+
+      const data = await getHistorialVentas(params);
+
+      if (!data || !data.historial || data.historial.length === 0) {
+        alert('No hay datos de historial para exportar');
+        return;
+      }
+
+      // Exportamos el historial
+      handleExportExcel(data.historial, 'historial_ventas');
+    } catch (error) {
+      console.error('Error al obtener historial para exportar:', error);
+      alert('Error al obtener datos del historial para exportar. Intente de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -317,7 +462,9 @@ const SalesModule = () => {
                   Filtros
                 </button>
 
-                <button className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                <button
+                  onClick={(e) => { handleExportExcel() }}
+                  className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
                   <Download className="w-4 h-4" />
                   Exportar
                 </button>
@@ -715,23 +862,18 @@ const SalesModule = () => {
 
                 {/* Botones de acción */}
                 <div className="mt-8 flex justify-end gap-3">
-                  <button className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 inline-flex items-center">
-                    <Download className="w-4 h-4 mr-2" />
-                    Descargar factura
-                  </button>
 
                   {selectedSale.status !== 'cancelled' && (
                     <>
                       {selectedSale.status !== 'completed' && (
                         <button
                           className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center"
-                          onClick={() => changeSaleStatus(selectedSale.id, 'Completada')}
+                          onClick={() => changeSaleStatus(selectedSale.id, 'completada')}
                           disabled={loading}
                         >
                           Marcar como completada
                         </button>
                       )}
-
                       <button
                         className="px-4 py-2 text-sm bg-red-100 text-red-800 hover:bg-red-200 rounded-lg inline-flex items-center"
                         onClick={() => {
@@ -974,7 +1116,7 @@ const SalesModule = () => {
               <Clock className="w-4 h-4 mr-2" />
               Historial de ventas
             </button>
-         
+
           </nav>
         </div>
 
