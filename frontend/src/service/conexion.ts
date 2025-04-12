@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://192.168.11.3:3001';
+const API_URL = 'https://vitis-backend.onrender.com';
 
 /**
  * Obtiene los datos del dashboard principal
