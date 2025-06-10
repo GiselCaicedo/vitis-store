@@ -851,21 +851,7 @@ const AnalysisModule = () => {
               )}
             </div>
 
-            <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
-           
-              <div className="mt-4 text-xs text-gray-500 flex justify-between">
-                <span>
-                  Entradas: {
-                    inventoryMovements.find(m => m.type === 'entrada')?.count || 0
-                  }
-                </span>
-                <span>
-                  Salidas: {
-                    inventoryMovements.find(m => m.type === 'salida')?.count || 0
-                  }
-                </span>
-              </div>
-            </div>
+            
           </div>
 
           {/* Charts and summary tables */}
