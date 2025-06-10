@@ -200,7 +200,7 @@ const AnalysisModule = () => {
         filename = 'resumen_analisis';
 
         // Monthly sales data
-        const salesSheetData = [['Mes', 'Ventas', 'Cantidad']];
+        const salesSheetData = [['Mes', 'Ventas ($)', 'Cantidad']];
         salesData.forEach(month => {
           salesSheetData.push([month.month, month.amount, month.count]);
         });
@@ -852,17 +852,7 @@ const AnalysisModule = () => {
             </div>
 
             <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Movimientos de inventario</p>
-                  <p className="text-2xl font-semibold text-gray-900 mt-1">
-                    {inventoryMovements.reduce((sum, m) => sum + (m.count || 0), 0)}
-                  </p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center">
-                  <BarChart2 size={24} className="text-amber-600" />
-                </div>
-              </div>
+           
               <div className="mt-4 text-xs text-gray-500 flex justify-between">
                 <span>
                   Entradas: {
