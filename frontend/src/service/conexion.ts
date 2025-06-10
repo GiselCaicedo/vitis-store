@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_URL = 'http://localhost:3001';
+const API_URL = process.env.NEXT_PUBLIC_NODE_API_URL;
 
 /**
  * Obtiene los datos del dashboard principal

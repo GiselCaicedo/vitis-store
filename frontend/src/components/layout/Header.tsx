@@ -98,6 +98,12 @@ export default function Header() {
     window.location.reload()
   };
 
+  // Function to handle mobile navigation
+  const handleMobileNavigation = (path) => {
+    setIsOpen(false); // Cerrar el menú móvil
+    router.push(path); // Navegar a la ruta
+  };
+
   // Main navigation items
   const mainNav = [
     { title: 'Dashboard', icon: <Home className="w-4 h-4" />, path: '/' },
@@ -110,7 +116,7 @@ export default function Header() {
   // For dropdown menus and mobile navigation
   const allModules = [
     {
-      title: 'Inicio',
+      title: 'Dashboard',
       icon: <Home className="w-4 h-4" />,
       path: '/'
     },
@@ -118,75 +124,34 @@ export default function Header() {
       title: 'Productos',
       icon: <Package className="w-4 h-4" />,
       path: '/productos',
-      submenu: [
-        { title: 'Catálogo completo', path: '/productos/catalogo' },
-        { title: 'Categorización', path: '/productos/categorias' },
-        { title: 'Gestión de stock', path: '/productos/stock' }
-      ]
+     
     },
     {
       title: 'Inventario',
       icon: <Archive className="w-4 h-4" />,
       path: '/inventario',
-      submenu: [
-        { title: 'Registro de entradas', path: '/inventario/entradas' },
-        { title: 'Registro de salidas', path: '/inventario/salidas' },
-        { title: 'Histórico de movimientos', path: '/inventario/movimientos' }
-      ]
+   
     },
     {
       title: 'Ventas',
       icon: <ShoppingCart className="w-4 h-4" />,
       path: '/ventas',
-      submenu: [
-        { title: 'Punto de venta', path: '/ventas/pos' },
-        { title: 'Historial de ventas', path: '/ventas/historial' },
-        { title: 'Análisis de ventas', path: '/ventas/analisis' }
-      ]
+  
     },
     {
-      title: 'Categorías',
+      title: 'Análisis',
       icon: <Tag className="w-4 h-4" />,
-      path: '/categorias'
+      path: '/analisis'
     },
     {
       title: 'Alertas',
       icon: <Bell className="w-4 h-4" />,
-      path: '/alertas',
-      submenu: [
-        { title: 'Stock bajo', path: '/alertas/stock-bajo' },
-        { title: 'Productos sin movimiento', path: '/alertas/sin-movimiento' }
-      ]
+      path: '/notificaciones',
+     
     },
-    {
-      title: 'Reportes',
-      icon: <FileText className="w-4 h-4" />,
-      path: '/reportes',
-      submenu: [
-        { title: 'Reportes de inventario', path: '/reportes/inventario' },
-        { title: 'Reportes de ventas', path: '/reportes/ventas' },
-        { title: 'Exportación de datos', path: '/reportes/exportacion' }
-      ]
-    },
-    {
-      title: 'Usuarios',
-      icon: <Users className="w-4 h-4" />,
-      path: '/usuarios',
-      submenu: [
-        { title: 'Gestión de usuarios', path: '/usuarios/gestion' },
-        { title: 'Permisos', path: '/usuarios/permisos' }
-      ]
-    },
-    {
-      title: 'Configuración',
-      icon: <Settings className="w-4 h-4" />,
-      path: '/configuracion'
-    },
-    {
-      title: 'Estadísticas',
-      icon: <BarChart4 className="w-4 h-4" />,
-      path: '/estadisticas'
-    }
+  
+   
+  
   ];
 
   // If not authenticated, don't render the header
@@ -296,29 +261,39 @@ export default function Header() {
               <div className="space-y-2 mb-6">
                 {allModules.map((module, index) => (
                   <div key={index}>
-                    <button
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-700 hover:bg-slate-50"
-                      onClick={() => module.submenu && handleDropdownToggle(index)}
-                    >
-                      <div className="flex items-center">
+                    {/* Cambio aquí: usar button con onClick para navegación o enlace directo si no hay submenu */}
+                    {module.submenu ? (
+                      <button
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-md text-slate-700 hover:bg-slate-50"
+                        onClick={() => handleDropdownToggle(index)}
+                      >
+                        <div className="flex items-center">
+                          <span className="mr-3 text-slate-500">{module.icon}</span>
+                          <span className="font-medium text-sm">{module.title}</span>
+                        </div>
+                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${activeDropdown === index ? 'rotate-180' : ''}`} />
+                      </button>
+                    ) : (
+                      // Para elementos sin submenu, usar button con handleMobileNavigation
+                      <button
+                        className="w-full flex items-center px-3 py-2 rounded-md text-slate-700 hover:bg-slate-50"
+                        onClick={() => handleMobileNavigation(module.path)}
+                      >
                         <span className="mr-3 text-slate-500">{module.icon}</span>
                         <span className="font-medium text-sm">{module.title}</span>
-                      </div>
-                      {module.submenu && (
-                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${activeDropdown === index ? 'rotate-180' : ''}`} />
-                      )}
-                    </button>
+                      </button>
+                    )}
 
                     {module.submenu && activeDropdown === index && (
                       <div className="ml-8 mt-1 mb-2 pl-2 border-l-2 border-slate-100 space-y-1">
                         {module.submenu.map((item, idx) => (
-                          <a
+                          <button
                             key={idx}
-                            href={item.path}
-                            className="block py-2 pl-2 text-sm text-slate-600 hover:text-slate-900"
+                            onClick={() => handleMobileNavigation(item.path)}
+                            className="block w-full text-left py-2 pl-2 text-sm text-slate-600 hover:text-slate-900"
                           >
                             {item.title}
-                          </a>
+                          </button>
                         ))}
                       </div>
                     )}

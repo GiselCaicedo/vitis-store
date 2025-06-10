@@ -66,47 +66,7 @@ export default function NotificationsPage() {
         }
     };
 
-    // Función para marcar notificaciones como leídas (resueltas)
-    const markAsRead = async (ids) => {
-        try {
-            // Para cada ID, llamamos a la API para marcar como resuelta
-            await Promise.all(ids.map(id => resolveNotification(id)));
 
-            // Actualizar el estado local
-            setNotifications(
-                notifications.map((notif) =>
-                    ids.includes(notif.id) ? { ...notif, read: true, estado: 'Resuelto' } : notif
-                )
-            );
-
-            setSelectedItems([]);
-            toast.success(`${ids.length} notificación(es) marcada(s) como resuelta(s)`);
-        } catch (err) {
-            console.error('Error al marcar notificaciones como resueltas:', err);
-            toast.error('Error al marcar notificaciones como resueltas');
-        }
-    };
-
-    // Función para ignorar notificaciones
-    const dismissNotifications = async (ids) => {
-        try {
-            // Para cada ID, llamamos a la API para marcar como ignorada
-            await Promise.all(ids.map(id => ignoreNotification(id)));
-
-            // Actualizar el estado local o volver a cargar las notificaciones
-            setNotifications(
-                notifications.map((notif) =>
-                    ids.includes(notif.id) ? { ...notif, read: true, estado: 'Ignorado' } : notif
-                )
-            );
-
-            setSelectedItems([]);
-            toast.success(`${ids.length} notificación(es) ignorada(s)`);
-        } catch (err) {
-            console.error('Error al ignorar notificaciones:', err);
-            toast.error('Error al ignorar notificaciones');
-        }
-    };
 
 
     // Función para filtrar notificaciones por tipo
