@@ -200,13 +200,13 @@ const AnalysisModule = () => {
         filename = 'resumen_analisis';
 
         // Monthly sales data
-        const salesSheetData = [['Mes', 'Ventas (€)', 'Cantidad']];
+        const salesSheetData = [['Mes', 'Ventas', 'Cantidad']];
         salesData.forEach(month => {
           salesSheetData.push([month.month, month.amount, month.count]);
         });
 
         // Top-selling products data
-        const productsSheetData = [['Producto', 'SKU', 'Categoría', 'Ventas', 'Ingresos (€)']];
+        const productsSheetData = [['Producto', 'SKU', 'Categoría', 'Ventas', 'Ingresos ($)']];
         topProductsData.forEach(product => {
           productsSheetData.push([
             product.name,
@@ -218,7 +218,7 @@ const AnalysisModule = () => {
         });
 
         // Sales by category data
-        const categoriesSheetData = [['Categoría', 'Porcentaje (%)', 'Ingresos (€)']];
+        const categoriesSheetData = [['Categoría', 'Porcentaje (%)', 'Ingresos ($)']];
         salesByCategory.forEach(category => {
           categoriesSheetData.push([
             category.category,
@@ -239,7 +239,7 @@ const AnalysisModule = () => {
         filename = 'analisis_ventas';
 
         // Sales data
-        const salesSheetData = [['Mes', 'Ventas (€)', 'Cantidad']];
+        const salesSheetData = [['Mes', 'Ventas ($)', 'Cantidad']];
         salesData.forEach(month => {
           salesSheetData.push([month.month, month.amount, month.count]);
         });
@@ -279,7 +279,7 @@ const AnalysisModule = () => {
         filename = 'analisis_productos';
 
         // Product data
-        const productsSheetData = [['Producto', 'SKU', 'Categoría', 'Ventas', 'Ingresos (€)', 'Stock', 'Tendencia']];
+        const productsSheetData = [['Producto', 'SKU', 'Categoría', 'Ventas', 'Ingresos ($)', 'Stock', 'Tendencia']];
         productsAnalysis.products.forEach(product => {
           productsSheetData.push([
             product.name,
@@ -293,7 +293,7 @@ const AnalysisModule = () => {
         });
 
         // Category data
-        const categoriesSheetData = [['Categoría', 'Productos', 'Unidades Vendidas', 'Ingresos (€)', 'Porcentaje (%)']];
+        const categoriesSheetData = [['Categoría', 'Productos', 'Unidades Vendidas', 'Ingresos ($)', 'Porcentaje (%)']];
         productsAnalysis.categories.forEach(category => {
           categoriesSheetData.push([
             category.category,
@@ -314,7 +314,7 @@ const AnalysisModule = () => {
         filename = 'historial_ventas';
 
         // History data
-        const historySheetData = [['Fecha', 'Producto', 'Cantidad', 'Importe (€)', 'Cliente']];
+        const historySheetData = [['Fecha', 'Producto', 'Cantidad', 'Importe ($)', 'Cliente']];
         salesHistory.forEach(sale => {
           historySheetData.push([
             sale.date,
@@ -471,7 +471,7 @@ const AnalysisModule = () => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Monto mínimo</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">€</span>
+                <span className="text-gray-500 sm:text-sm">$</span>
               </div>
               <input
                 type="number"
@@ -772,7 +772,7 @@ const AnalysisModule = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-500">Ventas totales</p>
-                  <p className="text-2xl font-semibold text-gray-900 mt-1">{totalSales.toLocaleString()}€</p>
+                  <p className="text-2xl font-semibold text-gray-900 mt-1">{totalSales.toLocaleString()}$</p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
                   <DollarSign size={24} className="text-blue-600" />
@@ -827,7 +827,7 @@ const AnalysisModule = () => {
                 <div>
                   <p className="text-sm font-medium text-gray-500">Ticket promedio</p>
                   <p className="text-2xl font-semibold text-gray-900 mt-1">
-                    {totalProducts > 0 ? (totalSales / totalProducts).toFixed(2) : '0.00'}€
+                    {totalProducts > 0 ? (totalSales / totalProducts).toFixed(2) : '0.00'}$
                   </p>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -898,11 +898,11 @@ const AnalysisModule = () => {
                       />
                       <YAxis
                         tick={{ fontSize: 12, fill: COLORS.primary }}
-                        tickFormatter={(value) => `${value}€`}
+                        tickFormatter={(value) => `${value}$`}
                         width={50}
                       />
                       <Tooltip
-                        formatter={(value) => [`${value.toFixed(2)}€`, 'Ventas']}
+                        formatter={(value) => [`${value.toFixed(2)}$`, 'Ventas']}
                         labelFormatter={(label) => `${label}`}
                         contentStyle={{ backgroundColor: '#f8f9fa', borderColor: '#e9ecef' }}
                       />
@@ -961,7 +961,7 @@ const AnalysisModule = () => {
                             {product.sales} uds.
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                            {product.revenue.toFixed(2)}€
+                            {product.revenue.toFixed(2)}$
                           </td>
                         </tr>
                       ))}
@@ -993,7 +993,7 @@ const AnalysisModule = () => {
                         <XAxis
                           type="number"
                           tick={{ fontSize: 12, fill: COLORS.primary }}
-                          tickFormatter={(value) => `${value}€`}
+                          tickFormatter={(value) => `${value}$`}
                         />
                         <YAxis
                           dataKey="category"
@@ -1002,7 +1002,7 @@ const AnalysisModule = () => {
                           tick={{ fontSize: 12, fill: COLORS.primary }}
                         />
                         <Tooltip
-                          formatter={(value) => [`${value.toFixed(2)}€`, 'Ventas']}
+                          formatter={(value) => [`${value.toFixed(2)}$`, 'Ventas']}
                           contentStyle={{ backgroundColor: '#f8f9fa', borderColor: '#e9ecef' }}
                         />
                         <Bar
@@ -1043,7 +1043,7 @@ const AnalysisModule = () => {
                     <div className="mt-4 pt-3 border-t border-gray-200">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Total</span>
-                        <span className="font-medium">{salesByCategory.reduce((sum, cat) => sum + (cat.revenue || 0), 0).toFixed(2)}€</span>
+                        <span className="font-medium">{salesByCategory.reduce((sum, cat) => sum + (cat.revenue || 0), 0).toFixed(2)}$</span>
                       </div>
                     </div>
                   </div>
@@ -1129,16 +1129,16 @@ const AnalysisModule = () => {
                     <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
                     <XAxis dataKey="month" tick={{ fill: COLORS.primary }} />
                     <YAxis
-                      tickFormatter={(value) => `${value}€`}
+                      tickFormatter={(value) => `${value}$`}
                       tick={{ fill: COLORS.primary }}
                     />
                     <Tooltip
-                      formatter={(value) => [`${value.toFixed(2)}€`, 'Ventas']}
+                      formatter={(value) => [`${value.toFixed(2)}$`, 'Ventas']}
                       labelFormatter={(label) => `${label}`}
                       contentStyle={{ backgroundColor: '#f8f9fa', borderColor: '#e9ecef' }}
                     />
                     <Legend />
-                    <Bar dataKey="amount" name="Importe (€)" fill={COLORS.accent1} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="amount" name="Importe ($)" fill={COLORS.accent1} radius={[4, 4, 0, 0]} />
                     <Bar dataKey="count" name="Unidades" fill={COLORS.accent2} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -1157,7 +1157,7 @@ const AnalysisModule = () => {
               {currentPeriodData ? (
                 <>
                   <div className="text-2xl font-semibold text-gray-900">
-                    {(currentPeriodData.current.totalSales / 30).toFixed(2)}€
+                    {(currentPeriodData.current.totalSales / 30).toFixed(2)}$
                   </div>
                   <div className={`text-xs mt-1 flex items-center ${currentPeriodData.changes.totalSales > 0
                     ? 'text-green-600'
@@ -1203,7 +1203,7 @@ const AnalysisModule = () => {
               {currentPeriodData ? (
                 <>
                   <div className="text-2xl font-semibold text-gray-900">
-                    {(currentPeriodData.current.totalSales / 4).toFixed(2)}€
+                    {(currentPeriodData.current.totalSales / 4).toFixed(2)}$
                   </div>
                   <div className={`text-xs mt-1 flex items-center ${currentPeriodData.changes.totalSales > 0
                     ? 'text-green-600'
@@ -1249,7 +1249,7 @@ const AnalysisModule = () => {
               {currentPeriodData ? (
                 <>
                   <div className="text-2xl font-semibold text-gray-900">
-                    {currentPeriodData.current.totalSales.toFixed(2)}€
+                    {currentPeriodData.current.totalSales.toFixed(2)}$
                   </div>
                   <div className={`text-xs mt-1 flex items-center ${currentPeriodData.changes.totalSales > 0
                     ? 'text-green-600'
@@ -1322,10 +1322,10 @@ const AnalysisModule = () => {
                         Ventas totales
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {currentPeriodData.current.totalSales?.toFixed(2) || 0}€
+                        {currentPeriodData.current.totalSales?.toFixed(2) || 0}$
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {currentPeriodData.previous.totalSales?.toFixed(2) || 0}€
+                        {currentPeriodData.previous.totalSales?.toFixed(2) || 0}$
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentPeriodData.changes.totalSales > 0
@@ -1363,10 +1363,10 @@ const AnalysisModule = () => {
                         Ticket promedio
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {currentPeriodData.current.avgTicket?.toFixed(2) || 0}€
+                        {currentPeriodData.current.avgTicket?.toFixed(2) || 0}$
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {currentPeriodData.previous.avgTicket?.toFixed(2) || 0}€
+                        {currentPeriodData.previous.avgTicket?.toFixed(2) || 0}$
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${currentPeriodData.changes.avgTicket > 0
@@ -1452,7 +1452,7 @@ const AnalysisModule = () => {
                       <div className="mt-2">
                         <div className="flex justify-between text-xs text-gray-500 mb-1">
                           <span>Ingresos</span>
-                          <span>{product.revenue.toFixed(2)}€</span>
+                          <span>{product.revenue.toFixed(2)}$</span>
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div
@@ -1515,7 +1515,7 @@ const AnalysisModule = () => {
                             {product.sales} uds.
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                            {product.revenue.toFixed(2)}€
+                            {product.revenue.toFixed(2)}$
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
                             {product.stock || 0} uds.
@@ -1587,7 +1587,7 @@ const AnalysisModule = () => {
                           {category.sales || 0} uds.
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                          {category.revenue?.toFixed(2) || '0.00'}€
+                          {category.revenue?.toFixed(2) || '0.00'}$
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
                           {category.percentage || 0}%
@@ -1640,9 +1640,7 @@ const AnalysisModule = () => {
                       <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Importe
                       </th>
-                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Cliente
-                      </th>
+                      
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1658,11 +1656,9 @@ const AnalysisModule = () => {
                           {sale.quantity} uds.
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                          {sale.amount?.toFixed(2) || '0.00'}€
+                          {sale.amount?.toFixed(2) || '0.00'}$
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                          {sale.customer || 'Cliente anónimo'}
-                        </td>
+                       
                       </tr>
                     ))}
                   </tbody>

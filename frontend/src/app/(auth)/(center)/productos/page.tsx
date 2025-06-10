@@ -569,30 +569,7 @@ export default function ProductosPage() {
                                     />
                                 </div>
 
-                                <div className="flex flex-wrap gap-2">
-                                    <select
-                                        className="pl-3 pr-8 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        value={categoryFilter}
-                                        onChange={(e) => setCategoryFilter(e.target.value)}
-                                    >
-                                        <option value="">Todas las categorías</option>
-                                        {categorias.map(cat => (
-                                            <option key={cat.id} value={cat.nombre}>{cat.nombre}</option>
-                                        ))}
-                                    </select>
-
-                                    <select
-                                        className="pl-3 pr-8 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        value={stockFilter}
-                                        onChange={(e) => setStockFilter(e.target.value)}
-                                    >
-                                        <option value="">Todos los niveles de stock</option>
-                                        <option value="low">Stock bajo (&lt; 10)</option>
-                                        <option value="medium">Stock medio (10-30)</option>
-                                        <option value="high">Stock alto (&gt; 30)</option>
-                                    </select>
-
-                                </div>
+                               
                             </div>
                         </div>
 
@@ -849,7 +826,6 @@ export default function ProductosPage() {
                                     <p className="text-3xl font-bold text-red-600">
                                         {stockResumen.bajo}
                                     </p>
-                                    <p className="text-sm text-slate-500 mt-1">Productos con menos de 10 unidades</p>
                                 </div>
                             </div>
 
@@ -862,7 +838,6 @@ export default function ProductosPage() {
                                     <p className="text-3xl font-bold text-amber-600">
                                         {stockResumen.medio}
                                     </p>
-                                    <p className="text-sm text-slate-500 mt-1">Productos entre 10 y 30 unidades</p>
                                 </div>
                             </div>
 
@@ -875,7 +850,6 @@ export default function ProductosPage() {
                                     <p className="text-3xl font-bold text-green-600">
                                         {stockResumen.bueno}
                                     </p>
-                                    <p className="text-sm text-slate-500 mt-1">Productos con más de 30 unidades</p>
                                 </div>
                             </div>
                         </div>

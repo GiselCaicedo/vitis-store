@@ -94,7 +94,6 @@ const SalesModule = () => {
         'Cliente',
         'Total',
         'Items',
-        'Estado',
         'Método de Pago',
         'Notas'
       ]);
@@ -125,7 +124,6 @@ const SalesModule = () => {
         { wch: 30 },    // Cliente
         { wch: 12 },    // Total
         { wch: 10 },    // Items
-        { wch: 15 },    // Estado
         { wch: 20 },    // Método de Pago
         { wch: 30 }     // Notas
       ];
@@ -163,35 +161,7 @@ const SalesModule = () => {
   };
 
   // Función para exportar todas las ventas (requiere obtener todos los datos)
-  const exportAllSales = async () => {
-    setLoading(true);
-    try {
-      // Llamamos a la API pero con un límite alto para obtener más datos
-      const params = {
-        page: 1,
-        limit: 1000, // Un número grande para intentar obtener todos los datos
-        searchTerm,
-        estado: statusFilter !== 'Todos' ? statusFilter : null,
-        fechaInicio: startDateFilter || null,
-        fechaFin: endDateFilter || null
-      };
-
-      const data = await getVentas(params);
-
-      if (!data.ventas || data.ventas.length === 0) {
-        alert('No hay ventas para exportar');
-        return;
-      }
-
-      // Exportamos todos los datos obtenidos
-      handleExportExcel(data.ventas, 'todas_las_ventas');
-    } catch (error) {
-      console.error('Error al obtener ventas para exportar:', error);
-      alert('Error al obtener datos para exportar. Intente de nuevo.');
-    } finally {
-      setLoading(false);
-    }
-  };
+ 
 
   // Función para exportar el historial de ventas
   const exportSalesHistory = async () => {
@@ -390,30 +360,7 @@ const SalesModule = () => {
   };
 
   // Función para cambiar el estado de una venta
-  const changeSaleStatus = async (saleId, newStatus) => {
-    setLoading(true);
-    try {
-      await updateVentaEstado(saleId, newStatus);
-
-      alert(`Estado de la venta actualizado a: ${newStatus}`);
-
-      // Actualizar el estado local
-      if (selectedSale && selectedSale.id === saleId) {
-        setSelectedSale({
-          ...selectedSale,
-          status: newStatus.toLowerCase()
-        });
-      }
-
-      // Recargar lista de ventas
-      fetchSales(pagination.page);
-    } catch (error) {
-      console.error('Error al cambiar estado de venta:', error);
-      alert('Error al cambiar el estado de la venta');
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   // Función para obtener color según estado
   const getStatusColor = (status) => {
@@ -510,19 +457,7 @@ const SalesModule = () => {
                       onChange={(e) => setEndDateFilter(e.target.value)}
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Estado</label>
-                    <select
-                      className="w-full p-2 border border-gray-300 rounded-lg text-sm"
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                    >
-                      <option value="Todos">Todos los estados</option>
-                      <option value="Completada">Completada</option>
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="Cancelada">Cancelada</option>
-                    </select>
-                  </div>
+                 
                 </div>
                 <div className="flex justify-end mt-4 gap-2">
                   <button
@@ -568,7 +503,6 @@ const SalesModule = () => {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                         <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                       </tr>
                     </thead>
@@ -581,11 +515,7 @@ const SalesModule = () => {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{sale.customer}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${parseFloat(sale.total).toFixed(2)}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sale.items}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(sale.status)}`}>
-                                {getStatusText(sale.status)}
-                              </span>
-                            </td>
+                           
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                               <button
                                 onClick={() => {
@@ -860,34 +790,7 @@ const SalesModule = () => {
                   </div>
                 </div>
 
-                {/* Botones de acción */}
-                <div className="mt-8 flex justify-end gap-3">
-
-                  {selectedSale.status !== 'cancelled' && (
-                    <>
-                      {selectedSale.status !== 'completed' && (
-                        <button
-                          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center"
-                          onClick={() => changeSaleStatus(selectedSale.id, 'completada')}
-                          disabled={loading}
-                        >
-                          Marcar como completada
-                        </button>
-                      )}
-                      <button
-                        className="px-4 py-2 text-sm bg-red-100 text-red-800 hover:bg-red-200 rounded-lg inline-flex items-center"
-                        onClick={() => {
-                          if (window.confirm('¿Está seguro de que desea cancelar esta venta?')) {
-                            changeSaleStatus(selectedSale.id, 'Cancelada');
-                          }
-                        }}
-                        disabled={loading}
-                      >
-                        Cancelar venta
-                      </button>
-                    </>
-                  )}
-                </div>
+              
               </div>
             ) : (
               <div className="flex justify-center items-center h-64">

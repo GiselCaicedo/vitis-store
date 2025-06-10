@@ -76,7 +76,7 @@ export default function HomePage() {
   };
   
   const navigateToAlertas = () => {
-    router.push('/alertas');
+    router.push('/notificaciones');
   };
   
 
@@ -222,7 +222,7 @@ export default function HomePage() {
                     <tbody>
                       {topProducts.map((product) => (
                         <tr key={product.id_producto} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer" 
-                            onClick={() => router.push(`/productos/${product.id_producto}`)}>
+                            >
                           <td className="px-3 py-3 text-sm font-medium text-slate-800">{product.nombre}</td>
                           <td className="px-3 py-3 text-sm text-slate-500">{product.categoria}</td>
                           <td className="px-3 py-3 text-sm text-center">{product.total_vendido}</td>
@@ -262,7 +262,7 @@ export default function HomePage() {
                 <div className="space-y-1">
                   {recentAlerts.map((alert) => (
                     <div key={alert.id_alerta} className="p-2 rounded-md hover:bg-slate-50 cursor-pointer"
-                         onClick={() => router.push(`/alertas/${alert.id_alerta}`)}>
+                    >
                       <div className="flex items-start">
                         <div className={`mt-0.5 rounded-full p-1.5 ${
                           alert.prioridad_alerta === 'Alta' ? 'bg-red-100 text-red-600' : 

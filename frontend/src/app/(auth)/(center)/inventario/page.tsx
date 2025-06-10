@@ -385,17 +385,17 @@ const InventarioModule = () => {
   const handleExportExcel = (data, filename) => {
     try {
       console.log("Exportando datos:", data);
-  
+
       // Verify data exists and is an array
       if (!data || !Array.isArray(data) || data.length === 0) {
         console.warn("No data to export or invalid data format:", data);
         showError('No hay datos para exportar o el formato es inválido');
         return false;
       }
-  
+
       // Preparar los datos según el tipo de archivo
       let exportData = [];
-  
+
       // Si son productos
       if (filename.includes('productos')) {
         // Crear encabezados - asegurando que incluya los campos faltantes
@@ -412,31 +412,31 @@ const InventarioModule = () => {
           'Estado Stock',
           'Última Actualización',
         ]);
-  
+
         // Añadir datos
         data.forEach(item => {
           if (!item) {
             console.warn("Item undefined, skipping");
             return; // Skip this iteration
           }
-  
+
           // Asegurarnos de que podemos acceder a los campos faltantes bajo cualquier nombre posible
           const fechaCreacion = item.fechacreacion || item.fecha_creacion || item.createdAt || '';
           const proveedor = item.proveedor || item.supplier || '';
           const ubicacion = item.ubicacion || item.location || '';
-  
+
           // Formatear la fecha de creación
           let fechaCreacionFormateada = formatearFecha(fechaCreacion);
-  
+
           // Formatear la fecha de última actualización
           let fechaActualizacionFormateada = formatearFecha(item.lastUpdated || item.ultima_actualizacion || '');
-  
+
           // Calcular valor total del inventario para este producto
           const valorTotal = (item.stock || 0) * (item.precio || item.price || 0);
-  
+
           // Determinar el estado del stock
           let estadoStock = determinarEstadoStock(item);
-  
+
           // Imprimir para debugging
           console.log("Procesando item:", {
             id: item.id,
@@ -446,7 +446,7 @@ const InventarioModule = () => {
             proveedor: proveedor,
             ubicacion: ubicacion
           });
-  
+
           exportData.push([
             item.id,
             item.nombre || item.name || '',
@@ -461,7 +461,7 @@ const InventarioModule = () => {
             fechaActualizacionFormateada,
           ]);
         });
-  
+
         // Debugging para verificar los datos completos
         console.log("Datos preparados para exportación:", exportData);
       }
@@ -473,10 +473,10 @@ const InventarioModule = () => {
           showError('No hay categorías para exportar');
           return false;
         }
-  
+
         // Crear encabezados
         exportData.push(['ID', 'Nombre']);
-  
+
         // Añadir datos
         categorias.forEach(cat => {
           if (!cat) return; // Skip undefined items
@@ -494,7 +494,7 @@ const InventarioModule = () => {
           showError('No hay movimientos para exportar');
           return false;
         }
-  
+
         // Crear encabezados para movimientos
         exportData.push([
           'ID',
@@ -503,10 +503,9 @@ const InventarioModule = () => {
           'Tipo',
           'Cantidad',
           'Usuario',
-          'Notas',
-          'Referencia'
+          'Notas'
         ]);
-  
+
         // Añadir datos
         movimientos.forEach(mov => {
           if (!mov) return; // Skip undefined items
@@ -517,8 +516,7 @@ const InventarioModule = () => {
             mov.type || mov.tipo || '',
             mov.quantity || mov.cantidad || 0,
             mov.user || mov.usuario || '',
-            mov.notes || mov.notas || '',
-            mov.reference || mov.referencia || ''
+            mov.notes || mov.notas || ''
           ]);
         });
       }
@@ -526,18 +524,18 @@ const InventarioModule = () => {
       else {
         // Si no reconocemos el tipo de archivo, intentar exportar de forma genérica
         console.warn("Tipo de archivo no reconocido:", filename);
-        
+
         // Verificar si data[0] existe antes de intentar acceder a sus propiedades
         if (!data[0]) {
           console.warn("No hay datos para exportar o la estructura es inválida");
           showError('No hay datos para exportar');
           return false;
         }
-  
+
         // Obtener las cabeceras a partir de las propiedades del primer elemento
         const headers = Object.keys(data[0]);
         exportData.push(headers);
-  
+
         // Añadir filas de datos
         data.forEach(item => {
           if (!item) return; // Skip undefined items
@@ -545,17 +543,17 @@ const InventarioModule = () => {
           exportData.push(row);
         });
       }
-  
+
       // Si no hay datos para exportar después de procesar
       if (exportData.length <= 1) {
         console.warn("No se generaron datos para exportar");
         showError('No hay datos para exportar');
         return false;
       }
-  
+
       // Crear una hoja de trabajo
       const ws = XLSX.utils.aoa_to_sheet(exportData);
-  
+
       // Aplicar estilos a las celdas
       const numColumns = exportData[0].length;
       const colWidths = Array(numColumns).fill().map((_, i) => {
@@ -575,20 +573,20 @@ const InventarioModule = () => {
           default: return { wch: 15 };   // Otras columnas
         }
       });
-  
+
       ws['!cols'] = colWidths;
-  
+
       // Crear un libro de trabajo y añadir la hoja
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Datos');
-  
+
       // Escribir el archivo y descargarlo
       XLSX.writeFile(wb, `${filename}.xlsx`);
-  
+
       showSuccess(`Archivo ${filename}.xlsx exportado correctamente`);
       console.log(`Archivo ${filename}.xlsx exportado correctamente`);
       return true;
-  
+
     } catch (error) {
       console.error('Error al exportar datos a Excel:', error);
       showError('Error al exportar datos a Excel. Intente de nuevo.');
@@ -722,37 +720,9 @@ const InventarioModule = () => {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <select
-              key="category-filter"
-              className="pl-3 pr-8 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={categoriaFilter}
-              onChange={(e) => setCategoriaFilter(e.target.value)}
-            >
-              <option value="">Todas las categorías</option>
-              {categorias && categorias.length > 0 ? (
-                categorias.map(cat => (
-                  <option
-                    key={cat.id_categoria}
-                    value={cat.id_categoria}
-                  >
-                    {cat.nombre_categoria}
-                  </option>
-                ))
-              ) : null}
-            </select>
+          
 
-            <select
-              key="stock-status-filter"
-              className="pl-3 pr-8 py-2 border border-slate-200 rounded-md text-sm text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              value={stockStatusFilter}
-              onChange={(e) => setStockStatusFilter(e.target.value)}
-            >
-              <option value="">Todos los niveles de stock</option>
-              <option value="sin_stock">Sin stock</option>
-              <option value="bajo">Stock bajo</option>
-              <option value="optimo">Stock óptimo</option>
-            </select>
-
+         
             {activeTab === 'stock' && (
               <button
                 key="export-products-button"
@@ -834,7 +804,6 @@ const InventarioModule = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <span className="text-sm text-gray-900 mr-2">{product.stock}</span>
-                        {renderStockIndicator(product.stock, product.minStock, product.stockStatus)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -917,8 +886,9 @@ const InventarioModule = () => {
                       {movement.user}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {movement.notes || '-'}
+                      {movement.notes}
                     </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -955,9 +925,7 @@ const InventarioModule = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Usuario
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Referencia
-                  </th>
+
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -977,9 +945,7 @@ const InventarioModule = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {movement.user}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {movement.reference || '-'}
-                      </td>
+
                     </tr>
                   ))}
               </tbody>
@@ -1019,23 +985,8 @@ const InventarioModule = () => {
                 <Package size={24} className="text-blue-600" />
               </div>
             </div>
-            <div className="mt-4 text-xs text-gray-500">
-              {parseFloat(summaryData.crecimientoProductos) > 0 ? (
-                <span className="text-green-600 flex items-center">
-                  <ChevronUp size={14} className="mr-1" />
-                  +{summaryData.crecimientoProductos}% con respecto al mes anterior
-                </span>
-              ) : parseFloat(summaryData.crecimientoProductos) < 0 ? (
-                <span className="text-red-600 flex items-center">
-                  <ChevronDown size={14} className="mr-1" />
-                  {summaryData.crecimientoProductos}% con respecto al mes anterior
-                </span>
-              ) : (
-                <span className="text-gray-600 flex items-center">
-                  Sin cambios respecto al mes anterior
-                </span>
-              )}
-            </div>
+
+
           </div>
 
           <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-200">
@@ -1051,21 +1002,7 @@ const InventarioModule = () => {
               </div>
             </div>
             <div className="mt-4 text-xs text-gray-500">
-              {parseFloat(summaryData.crecimientoValor) > 0 ? (
-                <span className="text-green-600 flex items-center">
-                  <ChevronUp size={14} className="mr-1" />
-                  +{summaryData.crecimientoValor}% con respecto al mes anterior
-                </span>
-              ) : parseFloat(summaryData.crecimientoValor) < 0 ? (
-                <span className="text-red-600 flex items-center">
-                  <ChevronDown size={14} className="mr-1" />
-                  {summaryData.crecimientoValor}% con respecto al mes anterior
-                </span>
-              ) : (
-                <span className="text-gray-600 flex items-center">
-                  Sin cambios respecto al mes anterior
-                </span>
-              )}
+
             </div>
           </div>
 
@@ -1082,17 +1019,7 @@ const InventarioModule = () => {
               </div>
             </div>
             <div className="mt-4 text-xs text-gray-500">
-              {alertas.length > 0 ? (
-                <span className="text-red-600 flex items-center">
-                  <AlertTriangle size={14} className="mr-1" />
-                  {alertas.length} alertas pendientes de revisión
-                </span>
-              ) : (
-                <span className="text-green-600 flex items-center">
-                  <Check size={14} className="mr-1" />
-                  No hay alertas pendientes
-                </span>
-              )}
+
             </div>
           </div>
 
